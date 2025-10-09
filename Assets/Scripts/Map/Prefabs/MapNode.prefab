@@ -118,5 +118,5 @@ MonoBehaviour:
   connections: []
   isDiscovered: 0
   isReachable: 1
-  riftColor: 0
+  ryftColor: 0
   riftState: 0

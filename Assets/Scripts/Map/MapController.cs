@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Game.Ryfts;
 
 public class MapController : MonoBehaviour
 {
@@ -61,6 +62,10 @@ public class MapController : MonoBehaviour
     [Serializable]
     public class NodeSprite { public MapNodeType type; public Sprite sprite; }
 
+    // Prevents double-resolving the same ryft node
+    private readonly HashSet<MapNode> _resolvedRyfts = new HashSet<MapNode>();
+
+
     // ─────────────────────────────────────────────────────────────────────────────
     void OnValidate()
     {
@@ -82,6 +87,8 @@ public class MapController : MonoBehaviour
     {
         if (!cam) cam = Camera.main;
         if (cam) { cam.orthographic = true; cam.orthographicSize = camSize; }
+        if (!RyftEffectManager.Instance)
+            new GameObject("RyftEffectManager").AddComponent<RyftEffectManager>();
     }
 
     void Start()
@@ -158,8 +165,6 @@ public class MapController : MonoBehaviour
                 // All newly created nodes start unreachable (SILENT) until actually reached.
                 node.SetReachableSilently(false);
 
-                if (verboseLogging)
-                    Debug.Log($"[Map] • L{level} N{i}: {type} pos=({x:0.00},{y:0.00}) sprite={(sprite ? sprite.name : (type==MapNodeType.Rift ? "(rift auto)" : "NULL"))}");
             }
 
             levels.Add(row);
@@ -219,7 +224,6 @@ public class MapController : MonoBehaviour
             currentNode = levels[0][0];
             currentNode.Discover();
             currentNode.SetReachableSilently(true); // starting node reachable
-            if (verboseLogging) Debug.Log($"[Map] Start node: L0 N0 ({currentNode.type})");
         }
     }
 
@@ -255,7 +259,7 @@ public class MapController : MonoBehaviour
     }
 
     // Loader for rift sprites from Resources/Map/Ryfts/<color><State>.jpg
-    public Sprite GetRiftSprite(RiftColor color, RiftState state)
+    public Sprite GetRiftSprite(RyftColor color, RiftState state)
     {
         // Resources/Map/Ryfts/<color><State>.jpg
         string baseName = color.ToString().ToLower(); // blue/orange/green/yellow/purple
@@ -277,38 +281,46 @@ public class MapController : MonoBehaviour
 
         if (!s)
         {
-            if (verboseLogging)
-                Debug.LogWarning($"[Map] Rift sprite missing: Resources/{path}. Using fallback.");
 
             string fkKey  = $"{baseName}Rift";
             string fkPath = $"Map/Ryfts/{fkKey}";
             var fallback = _riftCache.TryGetValue(fkKey, out var fk) ? fk : Resources.Load<Sprite>(fkPath);
-
-            if (!fallback && verboseLogging)
-                Debug.LogWarning($"[Map] Fallback also missing: Resources/{fkPath}");
 
             _riftCache[key] = fallback;
             return fallback;
         }
 
         _riftCache[key] = s;
-        if (verboseLogging) Debug.Log($"[Map] Rift sprite OK: Resources/{path} ('{s.name}')");
         return s;
     }
 
     // ───────────────── movement / reveal / branch logic ─────────────────────────
     public void OnNodeChosen(MapNode node)
     {
-        if (verboseLogging) Debug.Log($"[Map] OnNodeChosen -> {node.name} ({node.type})");
         int levelIdx = FindLevelOf(node);
 
-        // same row: skipped rifts explode
+        // Collect same-row open ryfts we’re about to explode
+        var toMaybeExplode = new List<MapNode>();
         foreach (var n in levels[levelIdx])
+        {
             if (n != node && n.type == MapNodeType.Rift && n.riftState == RiftState.Open)
-                n.SetReachableDefault(false); // will explode
+            {
+                toMaybeExplode.Add(n);
+                n.SetReachableDefault(false); // your code: "will explode"
+            }
+        }
 
         currentNode = node;
         currentNode.MarkVisited();
+
+        // If we just CLOSED a ryft, resolve its Positive effect
+        if (currentNode.type == MapNodeType.Rift)
+            ResolveRyftOutcome(currentNode, closed:true);
+
+        // Any siblings that actually EXPLODED? resolve their Negative effects
+        foreach (var n in toMaybeExplode)
+            if (n.riftState == RiftState.Exploded)
+                ResolveRyftOutcome(n, closed:false);
 
         // After choosing, allow only children in the immediate next row
         ApplyReachabilityForCurrent(includeChildren:true);
@@ -327,6 +339,41 @@ public class MapController : MonoBehaviour
         // Update keyboard focus to reflect the new current/children
         FocusCurrentOrChildren();
     }
+
+    private void ResolveRyftOutcome(MapNode ryftNode, bool closed)
+    {
+        if (ryftNode == null || ryftNode.type != MapNodeType.Rift) return;
+        if (_resolvedRyfts.Contains(ryftNode)) return;
+
+        var color    = ryftNode.ryftColor;
+        var polarity = closed ? EffectPolarity.Positive : EffectPolarity.Negative;
+
+        var db = RyftEffectDatabase.Load();
+        db?.DebugDumpContents(); // todo - rm after debugging
+        var all = db?.All;
+
+        // collect all candidates that match color + polarity
+        var matches = new List<RyftEffectDef>();
+        foreach (var e in all)
+            if (e && e.color == color && e.polarity == polarity)
+                matches.Add(e);
+
+        var verb = closed ? "CLOSED" : "EXPLODED";
+        if (matches.Count == 0)
+        {
+
+            _resolvedRyfts.Add(ryftNode);
+            return;
+        }
+
+        // pick one at random
+        int idx = UnityEngine.Random.Range(0, matches.Count);
+        var chosen = matches[idx];
+        RyftEffectManager.Ensure().OnRyftOutcome(chosen);
+        _resolvedRyfts.Add(ryftNode);
+    }
+
+
 
     /// <summary>
     /// Locks everything except the current node; optionally makes immediate children clickable.
@@ -363,19 +410,6 @@ public class MapController : MonoBehaviour
                 }
             }
 
-            if (verboseLogging)
-            {
-                var sb = new StringBuilder();
-                sb.Append("[Map] Next row reachable: ");
-                bool any = false;
-                if (includeChildren)
-                {
-                    foreach (var n in levels[next])
-                        if (allow.Contains(n)) { sb.Append(n.name).Append(" "); any = true; }
-                }
-                if (!any) sb.Append("(none)");
-                Debug.Log(sb.ToString());
-            }
         }
 
         // ALL rows further ahead: silently locked
@@ -643,11 +677,11 @@ public class MapController : MonoBehaviour
     void DumpMap()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("[Map] ===== GENERATED MAP =====");
+
         for (int l = 0; l < levels.Count; l++)
         {
             var row = levels[l];
-            sb.Append($"[Map] L{l} ({row.Count}): ");
+
             for (int i = 0; i < row.Count; i++)
             {
                 var n = row[i];
@@ -723,7 +757,7 @@ public class MapController : MonoBehaviour
                     reachable  = n.isReachable,
                     visited    = n.visited,
                     isRift     = (n.type == MapNodeType.Rift),
-                    riftColor  = n.riftColor,
+                    ryftColor  = n.ryftColor,
                     riftState  = n.riftState
                 };
 
@@ -779,7 +813,7 @@ public class MapController : MonoBehaviour
                 // restore rift specifics
                 if (ns.isRift)
                 {
-                    node.riftColor = ns.riftColor;
+                    node.ryftColor = ns.ryftColor;
                     node.SetRiftState(ns.riftState);
                 }
 

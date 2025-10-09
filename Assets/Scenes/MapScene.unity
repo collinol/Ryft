@@ -173,6 +173,14 @@ MonoBehaviour:
   cam: {fileID: 0}
   camSize: 6
   camLerp: 8
+  markerRadius: 0.65
+  markerWidth: 0.06
+  markerSegments: 48
+  markerColor: {r: 1, g: 1, b: 1, a: 0.9}
+  focusRadius: 0.75
+  focusWidth: 0.06
+  focusSegments: 48
+  focusColor: {r: 1, g: 1, b: 0.25, a: 0.95}
   verboseLogging: 1
   drawGizmos: 1
 --- !u!4 &178446792

@@ -9,6 +9,7 @@ using Game.Enemies;
 using Game.Abilities;
 using Game.Abilities.Enemy; // <-- new: enemy DB
 using Game.UI;
+using Game.Ryfts;
 
 namespace Game.Combat
 {
@@ -36,9 +37,13 @@ namespace Game.Combat
         private readonly Dictionary<string, AbilityRuntime> runtimeById = new();
 
         private AbilityRuntime pendingTargetedAbility;
+        public static FightSceneController Instance { get; private set; }
+        public bool IsFreeCast => isFreeCast;
+        private bool pendingFreeCast;
 
         void Awake()
         {
+             Instance = this;
             if (!player)  player  = FindObjectOfType<PlayerCharacter>();
             if (enemies == null || enemies.Length == 0)
                 enemies = FindObjectsOfType<EnemyBase>();
@@ -75,15 +80,37 @@ namespace Game.Combat
             // Build enemy runtimes from ENEMY db
             foreach (var e in enemyList) e?.EnsureEnemyAbilityRuntimes(enemyAbilityDb);
 
+            RyftCombatEvents.RaiseBattleStart(ctx);
+            RyftCombatEvents.RaiseTurnStart();
+            RefreshAbilityButtons();
+            var ryftMgr = RyftEffectManager.Ensure();
+            ryftMgr.EnsurePlayerRef();
+            ryftMgr.DebugLogActiveEffects("[Fight]");
+        }
 
+        public void AddCooldown(string abilityId, int delta)
+        {
+            if (string.IsNullOrEmpty(abilityId) || delta == 0) return;
+            if (!runtimeById.TryGetValue(abilityId, out var runtime))
+            {
+                runtime = playerAbilityDb.CreateRuntime(abilityId, player);
+                if (runtime == null) return;
+                runtimeById[abilityId] = runtime;
+            }
+            int before = runtime.CooldownRemaining;
+            runtime.AdjustCooldown(delta);
+            if (RyftEffectManager.Instance?.verboseRyftLogs == true)
+                Debug.Log($"[Ryft][CD] {abilityId}: {before} {(delta>0?"+":"")}{delta} => {runtime.CooldownRemaining}");
             RefreshAbilityButtons();
         }
 
 
-        // ------------------- UI hooks -------------------
 
-        public void UsePlayerAbility(string abilityId)
+        // ------------------- UI hooks -------------------
+        private bool isFreeCast;
+        public void UsePlayerAbility(string abilityId, bool freeCast = false)
         {
+            isFreeCast = freeCast;
             if (string.IsNullOrEmpty(abilityId)) return;
 
             if (!runtimeById.TryGetValue(abilityId, out var runtime))
@@ -97,21 +124,27 @@ namespace Game.Combat
             {
                 case TargetingType.None:
                 case TargetingType.Self:
+                    RyftCombatEvents.RaiseAbilityUsed(player, runtime.Def, ctx);
                     runtime.Execute(ctx, player);
+                    RyftCombatEvents.RaiseAbilityResolved(player, runtime.Def, ctx);
                     RefreshAbilityButtons();
                     break;
 
                 case TargetingType.SingleEnemy:
                     pendingTargetedAbility = runtime;
+                    pendingFreeCast = freeCast;
                     ctx.Log("Click an enemy to target.");
-                    break;
+                    return;
 
                 case TargetingType.AllEnemies:
+                    RyftCombatEvents.RaiseAbilityUsed(player, runtime.Def, ctx);
                     foreach (var e in ctx.Enemies.Where(e => e && e.IsAlive))
                         runtime.Execute(ctx, e);
+                    RyftCombatEvents.RaiseAbilityResolved(player, runtime.Def, ctx);
                     RefreshAbilityButtons();
                     break;
             }
+            isFreeCast = false;
         }
 
         public void OnEnemyClicked(EnemyBase enemy)
@@ -119,7 +152,11 @@ namespace Game.Combat
             if (!enemy || !enemy.IsAlive) return;
             if (pendingTargetedAbility != null)
             {
+                isFreeCast = pendingFreeCast;
+                RyftCombatEvents.RaiseAbilityUsed(player, pendingTargetedAbility.Def, ctx);
                 pendingTargetedAbility.Execute(ctx, enemy);
+                RyftCombatEvents.RaiseAbilityResolved(player, pendingTargetedAbility.Def, ctx);
+                isFreeCast = false;
                 pendingTargetedAbility = null;
                 RefreshAbilityButtons();
             }
@@ -131,13 +168,15 @@ namespace Game.Combat
         {
             foreach (var rt in runtimeById.Values) rt.TickCooldown();
             RefreshAbilityButtons();
-
+            RyftCombatEvents.RaiseTurnEnd();
             if (turnBanner) turnBanner.Show("Enemy Turn");
             StartCoroutine(EnemyTurnThenBackToPlayer());
         }
 
         private IEnumerator EnemyTurnThenBackToPlayer()
+
         {
+            RyftCombatEvents.RaiseTurnStart();
             foreach (var enemy in ctx.Enemies.Where(e => e && e.IsAlive))
             {
                 yield return new WaitForSeconds(enemyActionDelay);
@@ -161,7 +200,9 @@ namespace Game.Combat
                     rt?.TickCooldown();
 
             RefreshAbilityButtons();
+            RyftCombatEvents.RaiseTurnEnd();
             if (turnBanner) turnBanner.Show("Player Turn");
+            RyftCombatEvents.RaiseTurnStart();
         }
 
         // ------------------- helpers for UI buttons ----------------

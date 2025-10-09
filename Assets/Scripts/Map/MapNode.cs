@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Game.Ryfts;
 
 [RequireComponent(typeof(SpriteRenderer))]
 [RequireComponent(typeof(Collider2D))]
@@ -18,7 +19,7 @@ public class MapNode : MonoBehaviour
     public bool visited = false;
 
     [Header("Rift (only if type == Rift)")]
-    public RiftColor riftColor;
+    public RyftColor ryftColor;
     public RiftState riftState = RiftState.Open;
 
     [Header("Visual")]
@@ -103,9 +104,10 @@ public class MapNode : MonoBehaviour
 
         if (t == MapNodeType.Rift)
         {
-            riftColor = (RiftColor)Random.Range(0, 5);
+            int colorCount = System.Enum.GetValues(typeof(RyftColor)).Length;
+            ryftColor = (RyftColor)Random.Range(0, colorCount);
             riftState = RiftState.Open;
-            ApplySprite(controller.GetRiftSprite(riftColor, riftState));
+            ApplySprite(controller.GetRiftSprite(ryftColor, riftState));
         }
         else
         {
@@ -126,7 +128,6 @@ public class MapNode : MonoBehaviour
         // If the load failed, DO NOT clear the sprite. Keep whatever is currently shown.
         if (s == null)
         {
-            Debug.LogWarning($"[MapNode] {name}: Attempted to apply NULL sprite. Keeping existing.");
             // Still refit collider to current visual
             NormalizeSize();
             RefitCollider();
@@ -196,7 +197,7 @@ public class MapNode : MonoBehaviour
         if (!isReachable && explodeWhenFalse && type == MapNodeType.Rift && riftState == RiftState.Open)
         {
             riftState = RiftState.Exploded;
-            ApplySprite(controller.GetRiftSprite(riftColor, riftState));
+            ApplySprite(controller.GetRiftSprite(ryftColor, riftState));
         }
 
         UpdateVisibility();
@@ -226,7 +227,7 @@ public class MapNode : MonoBehaviour
         if (col) { wasEnabled = col.enabled; col.enabled = true; }
 
         riftState = state;
-        var newSprite = controller.GetRiftSprite(riftColor, riftState);
+        var newSprite = controller.GetRiftSprite(ryftColor, riftState);
         ApplySprite(newSprite);
 
         if (col) col.enabled = wasEnabled;
@@ -261,7 +262,6 @@ public class MapNode : MonoBehaviour
 
     public void Activate()
     {
-        Debug.Log($"[MapNode] ACTIVATE {name} type={type} discovered={isDiscovered} reachable={isReachable} visited={visited}");
         if (!isDiscovered || !isReachable || visited) return;
 
         if (type == MapNodeType.Rift)
@@ -280,12 +280,10 @@ public class MapNode : MonoBehaviour
             if (MapSession.I == null)
             {
                 new GameObject("MapSession (auto)").AddComponent<MapSession>();
-                Debug.Log("[Map] Created MapSession on-demand.");
             }
 
             var st = controller.BuildState();
             MapSession.I.Saved = st;
-            Debug.Log($"[Map] State saved: rows={st.levels?.Length ?? 0}, current=L{st.currentLevel} N{st.currentIndex}");
 
             MarkVisited();
             SceneManager.LoadScene("FightScene", LoadSceneMode.Single);

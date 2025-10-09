@@ -7,6 +7,5 @@ public enum MapNodeType
     Elite,
     Rift
 }
-public enum RiftColor { Blue, Orange, Green, Yellow, Purple }
-public enum RiftState { Open, Closed, Exploded }
 
+public enum RiftState { Open, Closed, Exploded }

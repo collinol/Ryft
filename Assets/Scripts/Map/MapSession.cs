@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using Game.Ryfts;
 public class MapSession : MonoBehaviour
 {
     public static MapSession I { get; private set; }
@@ -36,7 +36,7 @@ public class MapState
 
         // Rift-only
         public bool isRift;
-        public RiftColor riftColor;
+        public RyftColor ryftColor;
         public RiftState riftState;
 
         // outgoing edges (toLevel,toIndex)

@@ -9,6 +9,6 @@ public static class MapBootstrap
 
         var go = new GameObject("MapSession (auto)");
         go.AddComponent<MapSession>();
-        Debug.Log("[Map] MapSession auto-created.");
+
     }
 }

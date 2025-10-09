@@ -7,6 +7,7 @@ using Game.Core;        // IActor, Stats
 using Game.Abilities;   // AbilityDatabase, AbilityDef
 using Game.Talent;      // TalentTreeDef (kept for compatibility)
 using Game.UI;
+using Game.Ryfts;
 
 namespace Game.Player
 {
@@ -17,7 +18,34 @@ namespace Game.Player
         [SerializeField] private Stats baseStats = new Stats { maxHealth = 20, strength = 3, defense = 0 };
         public string DisplayName => displayName;
         public Stats BaseStats => baseStats;
-        public Stats TotalStats => baseStats;
+        public Stats TotalStats
+        {
+            get
+            {
+                // copy base so we don't mutate it
+                var s = new Stats
+                {
+                    maxHealth = baseStats.maxHealth,
+                    strength  = baseStats.strength,
+                    defense   = baseStats.defense
+                    // ... additional fields
+                };
+
+                var mgr = Game.Ryfts.RyftEffectManager.Instance;
+                if (mgr)
+                {
+                    s.maxHealth += mgr.BonusMaxHp;
+                    s.strength  += mgr.BonusStrength;
+                    s.defense   += mgr.BonusDefense;
+                }
+
+                // (optional) add temporary per-battle modifiers if you track them somewhere
+                // s.strength += tempStrengthDelta;
+                // s.defense  += tempDefenseDelta;
+
+                return s;
+            }
+        }
         public int Health { get; private set; }
         public bool IsAlive => Health > 0;
         private HealthBarView hpBar;
@@ -57,6 +85,8 @@ namespace Game.Player
             var mitigated = Mathf.Max(0, amount - TotalStats.defense);
             Health = Mathf.Max(0, Health - mitigated);
             hpBar?.Set(Health, TotalStats.maxHealth);
+            RyftCombatEvents.RaiseDamageTaken(this, mitigated);
+
         }
 
         public void Heal(int amount)
@@ -86,7 +116,6 @@ namespace Game.Player
             if (string.IsNullOrWhiteSpace(abilityId)) return false;
             var def = learned.FirstOrDefault(a => a && a.id == abilityId);
             if (!def) return false;
-            Debug.Log($"Player wants to use {def.displayName}");
             return true; // controller actually executes
         }
 

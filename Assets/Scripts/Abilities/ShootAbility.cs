@@ -1,6 +1,7 @@
 using UnityEngine;
 using Game.Core;
 using Game.Combat;
+using Game.Ryfts;
 
 namespace Game.Abilities
 {
@@ -14,12 +15,30 @@ namespace Game.Abilities
             var target = explicitTarget ?? ctx.FirstAliveEnemy();
             if (target == null) return;
 
-            var strength = Owner.TotalStats.strength;
-            var dmg = Mathf.Max(1, Def.power + strength * Def.scaling);
-            target.ApplyDamage(dmg);
-            ctx.Log($"{Owner.DisplayName} uses {Def.displayName} for {dmg} damage on {target.DisplayName}.");
+            var attacker = Owner;
 
-            PutOnCooldown();
+            var strength = attacker.TotalStats.strength;
+            var dmg = Mathf.Max(1, Def.power + strength * Def.scaling);
+            var mgr = RyftEffectManager.Instance;
+            if (mgr) dmg = mgr.ApplyOutgoingDamageModifiers(dmg);
+
+            // capture pre-HP to compute *actual* damage dealt
+            int before = target.Health;
+
+            target.ApplyDamage(dmg);
+            int dealt = Mathf.Max(0, before - target.Health);
+
+            // raise “damage dealt” with the mitigated/clamped amount
+            RyftCombatEvents.RaiseDamageDealt(attacker, target, dealt);
+
+            // if this ability always targets enemies, also signal defeats here
+            if (!target.IsAlive)
+                RyftCombatEvents.RaiseEnemyDefeated(target);
+
+            ctx.Log($"{attacker.DisplayName} uses {Def.displayName} for {dmg} damage on {target.DisplayName}.");
+
+            if (!FightSceneController.Instance || !FightSceneController.Instance.IsFreeCast)
+                PutOnCooldown();
         }
     }
 }

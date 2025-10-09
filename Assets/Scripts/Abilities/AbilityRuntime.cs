@@ -27,5 +27,15 @@ namespace Game.Abilities
 
         public void PutOnCooldown() => CooldownRemaining = Mathf.Max(Def.baseCooldown, 0);
         public void TickCooldown()   => CooldownRemaining = Mathf.Max(0, CooldownRemaining - 1);
+
+         public void AdjustCooldown(int delta)
+        {
+            CooldownRemaining = Mathf.Max(0, CooldownRemaining + delta);
+        }
+
+        public void ResetCooldown()
+        {
+            CooldownRemaining = 0;
+        }
     }
 }

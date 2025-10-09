@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c777a281d712bf45b32ebf7c58b3c6e, type: 3}
+  m_Name: RyftEffect_GreenClosedPermDefense1
+  m_EditorClassIdentifier: 
+  id: GreenClosedPermDefense1
+  displayName: +1 Defense (Permanent)
+  description: Gain +1 permanent Defense.
+  color: 1
+  polarity: 0
+  lifetime: 0
+  durationTurns: 0
+  delayTurns: 0
+  maxStacks: 999
+  chancePercent: 100
+  internalCooldownTurns: 0
+  intMagnitude: 1
+  floatMagnitude: 0
+  builtIn: 3
+  runtimeTypeName: 
