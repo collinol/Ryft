@@ -11,6 +11,7 @@ namespace Game.Ryfts
         public int turnsRemaining { get; protected set; } = 0;
         public int delayRemaining { get; protected set; } = 0;
         public int internalCdRemaining { get; protected set; } = 0;
+        public virtual void OnStacksChanged(RyftEffectManager mgr, int delta) { }
 
         public void Bind(RyftEffectDef def)
         {
@@ -48,12 +49,13 @@ namespace Game.Ryfts
         public float EffectiveChancePercent =>
             Mathf.Clamp((Def?.chancePercent ?? 0f) * Mathf.Max(1, stacks), 0f, 100f);
 
-        public void AddStack(int amount = 1, bool refreshDuration = true)
+        public virtual void AddStack(int count = 1, bool refreshDuration = false, RyftEffectManager mgr = null)
         {
-            if (Def == null) return;
-            stacks = Mathf.Clamp(stacks + amount, 1, Mathf.Max(1, Def.maxStacks));
+            int before = stacks;
+            stacks = Mathf.Min(Def.maxStacks > 0 ? Def.maxStacks : 9999, stacks + Mathf.Max(1, count));
             if (refreshDuration && Def.lifetime == EffectLifetime.DurationNTurns)
-                turnsRemaining = Mathf.Max(turnsRemaining, Mathf.Max(1, Def.durationTurns));
+                turnsRemaining = Mathf.Max(1, Def.durationTurns);
+            if (mgr != null) OnStacksChanged(mgr, stacks - before);
         }
 
         protected void StartInternalCooldown() => internalCdRemaining = Mathf.Max(0, Def.internalCooldownTurns);

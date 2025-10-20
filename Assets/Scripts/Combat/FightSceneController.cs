@@ -1,4 +1,3 @@
-// Assets/Scripts/Combat/FightSceneController.cs
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,10 +5,12 @@ using UnityEngine;
 using Game.Core;
 using Game.Player;
 using Game.Enemies;
-using Game.Abilities;
-using Game.Abilities.Enemy; // <-- new: enemy DB
+using Game.Cards;
 using Game.UI;
 using Game.Ryfts;
+using System;
+using Game.Abilities;
+using Game.Abilities.Enemy;
 
 namespace Game.Combat
 {
@@ -20,8 +21,7 @@ namespace Game.Combat
         [SerializeField] private EnemyBase[] enemies;
 
         [Header("Databases")]
-        [SerializeField] private AbilityDatabase       playerAbilityDb;   // player abilities
-        [SerializeField] private EnemyAbilityDatabase  enemyAbilityDb;    // enemy abilities
+        [SerializeField] private CardDatabase cardDb;
 
         [Header("UI (optional)")]
         [SerializeField] private Canvas uiCanvas;
@@ -30,29 +30,34 @@ namespace Game.Combat
         [Header("Turn Timing")]
         [SerializeField] private float enemyActionDelay = 0.6f;
 
+        [SerializeField] private Game.UI.AbilityBarUI handUI;
+        [SerializeField, Min(1)] private int maxHandSize = 0;
+
         private FightContext ctx;
-        private Camera cam;
 
-        // Player ability runtimes (id -> runtime)
-        private readonly Dictionary<string, AbilityRuntime> runtimeById = new();
+        // deck state
+        private readonly List<CardDef> drawPile    = new();
+        private readonly List<CardDef> discardPile = new();
+        private readonly List<CardDef> hand        = new();
 
-        private AbilityRuntime pendingTargetedAbility;
+        // card runtimes (id -> runtime bound to player)
+        private readonly Dictionary<string, CardRuntime> runtimeById = new();
+        private bool dealtOpeningHand = false;
+
+        private CardRuntime pendingTargetedCard;
+
         public static FightSceneController Instance { get; private set; }
-        public bool IsFreeCast => isFreeCast;
-        private bool pendingFreeCast;
 
         void Awake()
         {
-             Instance = this;
+            Instance = this;
+            if (!handUI) handUI = FindObjectOfType<Game.UI.AbilityBarUI>(true);
             if (!player)  player  = FindObjectOfType<PlayerCharacter>();
             if (enemies == null || enemies.Length == 0)
                 enemies = FindObjectsOfType<EnemyBase>();
 
-            if (!playerAbilityDb) playerAbilityDb = AbilityDatabase.Load();
-            if (!enemyAbilityDb)  enemyAbilityDb  = EnemyAbilityDatabase.Load();
-
-            if (!uiCanvas)  uiCanvas  = FindObjectOfType<Canvas>();
-            cam = Camera.main;
+            if (!cardDb) cardDb = CardDatabase.Load();
+            if (!uiCanvas) uiCanvas = FindObjectOfType<Canvas>();
             if (!turnBanner && uiCanvas) turnBanner = TurnBannerUI.Ensure(uiCanvas);
         }
 
@@ -60,162 +65,256 @@ namespace Game.Combat
         {
             if (turnBanner) turnBanner.ShowInstant("Player Turn");
 
-
             var enemyList = (enemies != null) ? enemies.Where(e => e != null).ToList()
                                               : new List<EnemyBase>();
-
             ctx = new FightContext(player, enemyList, msg => Debug.Log(msg));
 
-            // Build player runtimes from PLAYER db
-            foreach (var def in player.AbilityLoadout)
+            // Build deck
+            drawPile.Clear();
+            discardPile.Clear();
+            hand.Clear();
+            if (cardDb != null)
             {
-                if (!def) continue;
-                if (!runtimeById.ContainsKey(def.id))
+                drawPile.AddRange(cardDb.BuildPlayerDeck());
+                Shuffle(drawPile);
+            }
+
+            // Pre-bind runtimes for all unique cards (optional)
+            if (cardDb != null)
+            {
+                foreach (var c in cardDb.BuildPlayerDeck().Distinct())
+                    EnsureRuntime(c?.id);
+            }
+
+            // Start first player turn
+            StartPlayerTurn();
+        }
+
+        // ========== Turn flow ==========
+
+        private void StartPlayerTurn()
+        {
+            player.RefreshTurnStats();
+
+            int cap = EffectiveMaxHandSize();
+
+            if (!dealtOpeningHand)
+            {
+                DrawToHandSize(cap);      // opening hand: fill to max slots
+                dealtOpeningHand = true;
+            }
+            else
+            {
+                if (hand.Count >= cap)
                 {
-                    var rt = playerAbilityDb.CreateRuntime(def.id, player);
-                    if (rt != null) runtimeById[def.id] = rt;
-                }
-            }
-
-            // Build enemy runtimes from ENEMY db
-            foreach (var e in enemyList) e?.EnsureEnemyAbilityRuntimes(enemyAbilityDb);
-
-            RyftCombatEvents.RaiseBattleStart(ctx);
-            RyftCombatEvents.RaiseTurnStart();
-            RefreshAbilityButtons();
-            var ryftMgr = RyftEffectManager.Ensure();
-            ryftMgr.EnsurePlayerRef();
-            ryftMgr.DebugLogActiveEffects("[Fight]");
-        }
-
-        public void AddCooldown(string abilityId, int delta)
-        {
-            if (string.IsNullOrEmpty(abilityId) || delta == 0) return;
-            if (!runtimeById.TryGetValue(abilityId, out var runtime))
-            {
-                runtime = playerAbilityDb.CreateRuntime(abilityId, player);
-                if (runtime == null) return;
-                runtimeById[abilityId] = runtime;
-            }
-            int before = runtime.CooldownRemaining;
-            runtime.AdjustCooldown(delta);
-            if (RyftEffectManager.Instance?.verboseRyftLogs == true)
-                Debug.Log($"[Ryft][CD] {abilityId}: {before} {(delta>0?"+":"")}{delta} => {runtime.CooldownRemaining}");
-            RefreshAbilityButtons();
-        }
-
-
-
-        // ------------------- UI hooks -------------------
-        private bool isFreeCast;
-        public void UsePlayerAbility(string abilityId, bool freeCast = false)
-        {
-            isFreeCast = freeCast;
-            if (string.IsNullOrEmpty(abilityId)) return;
-
-            if (!runtimeById.TryGetValue(abilityId, out var runtime))
-            {
-                runtime = playerAbilityDb.CreateRuntime(abilityId, player);
-                if (runtime == null) return;
-                runtimeById[abilityId] = runtime;
-            }
-
-            switch (runtime.Def.targeting)
-            {
-                case TargetingType.None:
-                case TargetingType.Self:
-                    RyftCombatEvents.RaiseAbilityUsed(player, runtime.Def, ctx);
-                    runtime.Execute(ctx, player);
-                    RyftCombatEvents.RaiseAbilityResolved(player, runtime.Def, ctx);
-                    RefreshAbilityButtons();
-                    break;
-
-                case TargetingType.SingleEnemy:
-                    pendingTargetedAbility = runtime;
-                    pendingFreeCast = freeCast;
-                    ctx.Log("Click an enemy to target.");
+                    ctx.Log("Hand is full — no card drawn.");
+                    RefreshHandUI();
                     return;
-
-                case TargetingType.AllEnemies:
-                    RyftCombatEvents.RaiseAbilityUsed(player, runtime.Def, ctx);
-                    foreach (var e in ctx.Enemies.Where(e => e && e.IsAlive))
-                        runtime.Execute(ctx, e);
-                    RyftCombatEvents.RaiseAbilityResolved(player, runtime.Def, ctx);
-                    RefreshAbilityButtons();
-                    break;
+                }
+                Draw(1); // normal turn: draw 1 if there’s space
             }
-            isFreeCast = false;
-        }
 
-        public void OnEnemyClicked(EnemyBase enemy)
+            RefreshHandUI();
+        }
+        private void DrawToHandSize(int targetSize)
         {
-            if (!enemy || !enemy.IsAlive) return;
-            if (pendingTargetedAbility != null)
-            {
-                isFreeCast = pendingFreeCast;
-                RyftCombatEvents.RaiseAbilityUsed(player, pendingTargetedAbility.Def, ctx);
-                pendingTargetedAbility.Execute(ctx, enemy);
-                RyftCombatEvents.RaiseAbilityResolved(player, pendingTargetedAbility.Def, ctx);
-                isFreeCast = false;
-                pendingTargetedAbility = null;
-                RefreshAbilityButtons();
-            }
+            int need = Mathf.Max(0, targetSize - hand.Count);
+            if (need > 0) Draw(need);
         }
-
-        // ------------------- Turn flow -------------------
 
         public void EndPlayerTurnButton()
         {
-            foreach (var rt in runtimeById.Values) rt.TickCooldown();
-            RefreshAbilityButtons();
-            RyftCombatEvents.RaiseTurnEnd();
+            // DO NOT discard hand. Just go enemy turn.
             if (turnBanner) turnBanner.Show("Enemy Turn");
             StartCoroutine(EnemyTurnThenBackToPlayer());
         }
 
         private IEnumerator EnemyTurnThenBackToPlayer()
-
         {
-            RyftCombatEvents.RaiseTurnStart();
+            var enemyDb = EnemyAbilityDatabase.Load();
             foreach (var enemy in ctx.Enemies.Where(e => e && e.IsAlive))
             {
                 yield return new WaitForSeconds(enemyActionDelay);
 
-                var ability = enemy.PickRandomEnemyAbilityRuntime();
-                if (ability == null)
+                // --- Minimal default enemy action: deal flat damage to the player ---
+                enemy.PerformEnemyAction(ctx,enemyDb);
+            }
+
+            // Back to player
+            if (turnBanner) turnBanner.Show("Player Turn");
+            StartPlayerTurn();
+        }
+
+        // ========== Cards ==========
+
+        public IReadOnlyList<CardDef> CurrentHand => hand;
+
+        public bool CanPlayCard(string id)
+        {
+            var card = hand.FirstOrDefault(h => h && h.id == id);
+            if (!card) return false;
+            var rt = EnsureRuntime(id);
+            return rt != null && rt.CanUse(ctx);
+        }
+
+        public void UsePlayerCard(string cardId)
+        {
+            if (string.IsNullOrEmpty(cardId)) return;
+
+            // find a copy in hand
+            var index = hand.FindIndex(c => c && c.id == cardId);
+            if (index < 0) return;
+
+            var card = hand[index];
+            var rt   = EnsureRuntime(card.id);
+            if (rt == null) return;
+
+            switch (rt.Targeting)
+            {
+                case Game.Cards.TargetingType.None:
+                case Game.Cards.TargetingType.Self:
                 {
-                    ctx.Log($"{enemy.DisplayName} has no abilities configured.");
-                    continue;
+                    var owner = player as IActor;
+                    RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                    rt.Execute(ctx, player);
+                    RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+                    DiscardFromHand(index);
+                    break;
                 }
 
-                if (player && player.IsAlive && ability.CanUse(ctx))
+                case Game.Cards.TargetingType.SingleEnemy:
+                    pendingTargetedCard = rt;
+                    break;
+
+                case Game.Cards.TargetingType.AllEnemies:
                 {
-                    ability.Execute(ctx, ctx.Player);
+                    var owner = player as IActor;
+                    RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                    rt.Execute(ctx, null);
+                    RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+                    DiscardFromHand(index);
+                    break;
                 }
             }
 
-            // Tick enemy cooldowns
-            foreach (var e in ctx.Enemies.Where(e => e))
-                foreach (var rt in e.EnsureEnemyAbilityRuntimes(enemyAbilityDb))
-                    rt?.TickCooldown();
 
-            RefreshAbilityButtons();
-            RyftCombatEvents.RaiseTurnEnd();
-            if (turnBanner) turnBanner.Show("Player Turn");
-            RyftCombatEvents.RaiseTurnStart();
+            RefreshHandUI();
         }
 
-        // ------------------- helpers for UI buttons ----------------
-        public bool IsAbilityReady(string id) =>
-            runtimeById.TryGetValue(id, out var rt) && rt.IsReady;
-
-        public int GetCooldownRemaining(string id) =>
-            runtimeById.TryGetValue(id, out var rt) ? rt.CooldownRemaining : 0;
-
-        private void RefreshAbilityButtons()
+        public void OnEnemyClicked(EnemyBase enemy)
         {
-            var buttons = FindObjectsOfType<AbilityButton>(true);
-            foreach (var b in buttons) b.RefreshFromController(this);
+            if (!enemy || !enemy.IsAlive) return;
+            if (pendingTargetedCard == null) return;
+
+            var id = pendingTargetedCard.Def.id;
+            var handIndex = hand.FindIndex(c => c && c.id == id);
+            if (handIndex >= 0)
+            {
+                var owner = player as IActor;
+                RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                pendingTargetedCard.Execute(ctx, enemy);
+                RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+
+                DiscardFromHand(handIndex);
+                RefreshHandUI();
+            }
+
+            pendingTargetedCard = null;
         }
+
+
+        private void DiscardFromHand(int handIndex)
+        {
+            if (handIndex < 0 || handIndex >= hand.Count) return;
+            var card = hand[handIndex];
+            if (card) discardPile.Add(card);
+            hand.RemoveAt(handIndex);
+        }
+
+        private void Draw(int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                if (drawPile.Count == 0)
+                {
+                    // reshuffle discard into draw
+                    if (discardPile.Count == 0) return; // nothing to draw
+                    drawPile.AddRange(discardPile);
+                    discardPile.Clear();
+                    Shuffle(drawPile);
+                }
+
+                var top = drawPile[drawPile.Count - 1];
+                drawPile.RemoveAt(drawPile.Count - 1);
+                hand.Add(top);
+            }
+        }
+
+        private static void Shuffle<T>(List<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
+        }
+
+        private CardRuntime EnsureRuntime(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            if (runtimeById.TryGetValue(id, out var rt)) return rt;
+
+            var def = cardDb?.Get(id);
+            if (!def)
+            {
+                Debug.LogError($"Card '{id}' not found in CardDatabase.");
+                return null;
+            }
+
+            var type = System.Type.GetType(def.runtimeTypeName);
+            if (type == null)
+            {
+                Debug.LogError($"Card runtime type not found: {def.runtimeTypeName}");
+                return null;
+            }
+
+            rt = System.Activator.CreateInstance(type) as CardRuntime;
+            if (rt == null)
+            {
+                Debug.LogError($"Type '{def.runtimeTypeName}' is not a CardRuntime.");
+                return null;
+            }
+
+            rt.Bind(def, player);
+            runtimeById[id] = rt;
+            return rt;
+        }
+
+        private void RefreshHandUI()
+        {
+            if (!handUI) handUI = FindObjectOfType<Game.UI.AbilityBarUI>(true);
+            handUI?.Refresh();
+        }
+        private int EffectiveMaxHandSize()
+        {
+            if (maxHandSize > 0) return maxHandSize;
+            if (handUI)
+            {
+                var slots = handUI.GetComponentsInChildren<Game.UI.AbilityButton>(true);
+                if (slots != null && slots.Length > 0) return slots.Length;
+            }
+            return 5;
+        }
+        public IEnumerable<IActor> AllAliveEnemies()
+        {
+            var list = enemies ?? Array.Empty<EnemyBase>();
+            foreach (var e in list)
+            {
+                if (e && e.IsAlive) yield return e;  // EnemyBase implements IActor
+            }
+        }
+
     }
 }
+
+

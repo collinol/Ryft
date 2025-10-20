@@ -120,40 +120,6 @@
       "builtIn": "None",
       "runtimeTypeName": "Game.Ryfts.OrangeClosedOpeningVolley"
     },
-    {
-      "id": "OrangeExplodedFizzle",
-      "displayName": "Fizzle (10%)",
-      "description": "10% chance: ability does no damage but still goes on cooldown.",
-      "color": "Orange",
-      "polarity": "Negative",
-      "lifetime": "UntilBattleEnd",
-      "durationTurns": 0,
-      "delayTurns": 0,
-      "maxStacks": 100,
-      "chancePercent": 10,
-      "internalCooldownTurns": 1,
-      "intMagnitude": 0,
-      "floatMagnitude": 0.0,
-      "builtIn": "None",
-      "runtimeTypeName": "Game.Ryfts.OrangeExplodedFizzle"
-    },
-    {
-      "id": "OrangeExplodedFragile",
-      "displayName": "Fragile Blows",
-      "description": "Your attacks deal 1 less damage.",
-      "color": "Orange",
-      "polarity": "Negative",
-      "lifetime": "UntilBattleEnd",
-      "durationTurns": 0,
-      "delayTurns": 0,
-      "maxStacks": 100,
-      "chancePercent": 100,
-      "internalCooldownTurns": 0,
-      "intMagnitude": -1,
-      "floatMagnitude": 0.0,
-      "builtIn": "None",
-      "runtimeTypeName": "Game.Ryfts.OrangeExplodedFlatDamageDown"
-    },
 
 
 
@@ -298,25 +264,6 @@
 
 
 
-
-
-    {
-      "id": "BlueClosedCDsMinus1OnStart",
-      "displayName": "Quick Prep",
-      "description": "At battle start, reduce all your ability cooldowns by 1.",
-      "color": "Blue",
-      "polarity": "Positive",
-      "lifetime": "UntilBattleEnd",
-      "durationTurns": 0,
-      "delayTurns": 0,
-      "maxStacks": 10,
-      "chancePercent": 100,
-      "internalCooldownTurns": 0,
-      "intMagnitude": 1,
-      "floatMagnitude": 0.0,
-      "builtIn": "None",
-      "runtimeTypeName": "Game.Ryfts.BlueClosedCDsMinus1OnStart"
-    },
     {
       "id": "BlueClosedChanceResetUsedCD",
       "displayName": "Fresh Hands (8%)",
@@ -410,23 +357,39 @@
       "runtimeTypeName": ""
     },
     {
-      "id": "PurpleClosedBattleStrengthBuff",
-      "displayName": "Sharpened Edge",
-      "description": "At battle start, gain +2 Strength for 2 turns.",
+      "id": "PurpleClosedTempStrengthUp",
+      "displayName": "+Strength (Temp)",
+      "description": "+2 Strength for 2 turns (stacks).",
       "color": "Purple",
       "polarity": "Positive",
       "lifetime": "DurationNTurns",
       "durationTurns": 2,
       "delayTurns": 0,
-      "maxStacks": 10,
+      "maxStacks": 99,
       "chancePercent": 100,
       "internalCooldownTurns": 0,
       "intMagnitude": 2,
       "floatMagnitude": 0.0,
       "builtIn": "None",
-      "runtimeTypeName": "Game.Ryfts.PurpleClosedBattleStrengthBuff"
+      "runtimeTypeName": "Game.Ryfts.PurpleClosedTempStrengthUp"
     },
-
+    {
+      "id": "PurpleClosedPermStrengthUp",
+      "displayName": "+Strength",
+      "description": "+2 Strength for 2 turns (stacks).",
+      "color": "Purple",
+      "polarity": "Positive",
+      "lifetime": "Permanent",
+      "durationTurns": 0,
+      "delayTurns": 0,
+      "maxStacks": 99,
+      "chancePercent": 100,
+      "internalCooldownTurns": 0,
+      "intMagnitude": 2,
+      "floatMagnitude": 0.0,
+      "builtIn": "None",
+      "runtimeTypeName": "Game.Ryfts.PurpleClosedPermStrengthUp"
+    },
     {
       "id": "PurpleExplodedPermStrengthMinus1",
       "displayName": "-1 Strength (Permanent)",

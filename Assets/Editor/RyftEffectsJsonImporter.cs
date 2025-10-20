@@ -17,7 +17,7 @@ public class RyftEffectJsonDef
     public string displayName;
     public string description;
 
-    public string color;     // Orange, Green, Blue, Yellow, Purple
+    public string color;     // Orange, Green, Blue, Purple
     public string polarity;  // Positive, Negative
 
     public string lifetime;  // Permanent, UntilBattleEnd, DurationNTurns

@@ -21,7 +21,7 @@ MonoBehaviour:
   durationTurns: 0
   delayTurns: 0
   maxStacks: 100
-  chancePercent: 12
+  chancePercent: 100
   internalCooldownTurns: 1
   intMagnitude: 1
   floatMagnitude: 0

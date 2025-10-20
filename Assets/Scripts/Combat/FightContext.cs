@@ -43,5 +43,6 @@ namespace Game.Combat
             for (int i = Enemies.Count - 1; i >= 0; i--)
                 if (Enemies[i] == null) Enemies.RemoveAt(i);
         }
+        public IEnumerable<IActor> AllAliveEnemies() => FightSceneController.Instance.AllAliveEnemies();
     }
 }

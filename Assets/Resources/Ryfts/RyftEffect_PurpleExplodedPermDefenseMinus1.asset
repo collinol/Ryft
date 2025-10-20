@@ -15,7 +15,7 @@ MonoBehaviour:
   id: PurpleExplodedPermDefenseMinus1
   displayName: -1 Defense (Permanent)
   description: Lose 1 permanent Defense.
-  color: 4
+  color: 3
   polarity: 1
   lifetime: 0
   durationTurns: 0

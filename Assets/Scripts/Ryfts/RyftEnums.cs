@@ -1,6 +1,6 @@
 namespace Game.Ryfts
 {
-    public enum RyftColor { Orange, Green, Blue, Yellow, Purple }
+    public enum RyftColor { Orange, Green, Blue, Purple }
 
     public enum EffectPolarity { Positive, Negative }
     public enum EffectLifetime { Permanent, UntilBattleEnd, DurationNTurns }

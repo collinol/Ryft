@@ -1,4 +1,3 @@
-using Game.Abilities;
 using UnityEngine;
 
 namespace Game.Ryfts
@@ -8,6 +7,7 @@ namespace Game.Ryfts
         public override void HandleTrigger(RyftEffectManager mgr, RyftEffectContext ctx)
         {
             if (ctx.trigger != RyftTrigger.OnDamageDealt) return;
+            if (ctx.cardDef == null) return;
             if (!mgr.IsPlayer(ctx.source) || ctx.target == null) return;
             if (!ShouldProc()) return;
 
@@ -22,5 +22,4 @@ namespace Game.Ryfts
             StartInternalCooldown();
         }
     }
-
 }

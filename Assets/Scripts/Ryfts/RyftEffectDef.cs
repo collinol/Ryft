@@ -8,8 +8,7 @@ namespace Game.Ryfts
         // Permanent or timed stat mods
         AddMaxHealth, AddStrength, AddDefense,
         // Chance-based triggers
-        ChanceDoubleCast, ChanceCooldownResetSelf, ChanceShieldOnBattleStart,
-        ChanceReduceAllCooldowns, ChanceHealOnHit, ChanceIgnoreDefense,
+        ChanceDoubleCast, ChanceShieldOnBattleStart, ChanceHealOnHit, ChanceIgnoreDefense,
     }
 
     [CreateAssetMenu(menuName="Game/Ryfts/Ryft Effect", fileName="RyftEffect_")]

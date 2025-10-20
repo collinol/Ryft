@@ -44,22 +44,6 @@ namespace Game.Ryfts
                     }
                     break;
 
-                case BuiltInOp.ChanceCooldownResetSelf:
-                    if (ctx.trigger == RyftTrigger.OnAbilityResolved && ShouldProc())
-                    {
-                        mgr.TryResetCooldownOf(ctx.abilityDef);
-                        StartInternalCooldown();
-                    }
-                    break;
-
-                case BuiltInOp.ChanceReduceAllCooldowns:
-                    if (ctx.trigger == RyftTrigger.OnEnemyDefeated && ShouldProc())
-                    {
-                        mgr.ReduceAllCooldownsBy(1);
-                        StartInternalCooldown();
-                    }
-                    break;
-
                 case BuiltInOp.ChanceShieldOnBattleStart:
                     if (ctx.trigger == RyftTrigger.OnBattleStart && ShouldProc())
                     {

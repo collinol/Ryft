@@ -15,7 +15,7 @@ MonoBehaviour:
   id: PurpleExplodedPermStrengthMinus1
   displayName: -1 Strength (Permanent)
   description: Lose 1 permanent Strength.
-  color: 4
+  color: 3
   polarity: 1
   lifetime: 0
   durationTurns: 0

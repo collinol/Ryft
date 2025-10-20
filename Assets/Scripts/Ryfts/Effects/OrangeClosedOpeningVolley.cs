@@ -20,7 +20,7 @@ namespace Game.Ryfts
             int before = t.Health;
             t.ApplyDamage(dmg);
             int dealt = Mathf.Max(0, before - t.Health);
-            if (dealt > 0) RyftCombatEvents.RaiseDamageDealt(mgr.PlayerActor, t, dealt);
+            if (dealt > 0) RyftCombatEvents.RaiseDamageDealt(null, t, dealt);
             if (!t.IsAlive) RyftCombatEvents.RaiseEnemyDefeated(t);
         }
     }

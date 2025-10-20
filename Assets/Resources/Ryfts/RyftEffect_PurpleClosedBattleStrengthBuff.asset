@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: PurpleClosedBattleStrengthBuff
   displayName: Sharpened Edge
-  description: At battle start, gain +2 Strength for 2 turns.
+  description: At battle start, gain +2 Strength for 1 turn.
   color: 4
   polarity: 0
   lifetime: 2
-  durationTurns: 2
+  durationTurns: 1
   delayTurns: 0
   maxStacks: 10
   chancePercent: 100
@@ -26,4 +26,4 @@ MonoBehaviour:
   intMagnitude: 2
   floatMagnitude: 0
   builtIn: 0
-  runtimeTypeName: Game.Ryfts.PurpleClosedBattleStrengthBuff
+  runtimeTypeName: Game.Ryfts.PurpleClosedPermStrengthUp

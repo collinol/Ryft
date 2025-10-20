@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: RyftEffectDatabase
   m_EditorClassIdentifier: 
   effects:
-  - {fileID: 11400000, guid: e563fb89502c72040b4f82176932c55f, type: 2}
   - {fileID: 11400000, guid: 64b2a99cb0f0d2341ae95c05ce2f2770, type: 2}
   - {fileID: 11400000, guid: cb1dddecb41398c4a9bcd06b20d5163f, type: 2}
   - {fileID: 11400000, guid: fd097c9cc9c326d4682719df95115fca, type: 2}
@@ -32,11 +31,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 48b08395b7ae06940b15413205fc2ff0, type: 2}
   - {fileID: 11400000, guid: 6c8dbf798dd3b9b49985be5311842735, type: 2}
   - {fileID: 11400000, guid: 33552aededed81644a019b5474b25f8f, type: 2}
-  - {fileID: 11400000, guid: a8accea7a66793b4eb842b38c22c1c0c, type: 2}
-  - {fileID: 11400000, guid: 393c06d770e2e7749a7507606d95a9f8, type: 2}
-  - {fileID: 11400000, guid: 39e7cc3424db2334aa8acabd26c8b9dd, type: 2}
   - {fileID: 11400000, guid: 3002747a76189a748826739f901a58df, type: 2}
   - {fileID: 11400000, guid: 3166fa3672a2c844fa41040a24878d6d, type: 2}
+  - {fileID: 11400000, guid: 0442a5481d2c1a24bbd4ebe3ba1d54c7, type: 2}
+  - {fileID: 11400000, guid: 751e630bed447b64fb7548a69949155b, type: 2}
   - {fileID: 11400000, guid: 15f112f846751c04dba160b2cbf5778d, type: 2}
   - {fileID: 11400000, guid: 46b921afa593b204bb6834f7cffe9727, type: 2}
   - {fileID: 11400000, guid: a79c51cd9658ce7499cbd94baaae29a1, type: 2}

@@ -262,7 +262,7 @@ public class MapController : MonoBehaviour
     public Sprite GetRiftSprite(RyftColor color, RiftState state)
     {
         // Resources/Map/Ryfts/<color><State>.jpg
-        string baseName = color.ToString().ToLower(); // blue/orange/green/yellow/purple
+        string baseName = color.ToString().ToLower(); // blue/orange/green/purple
         string suffix = state switch
         {
             RiftState.Open     => "Rift",
@@ -349,8 +349,18 @@ public class MapController : MonoBehaviour
         var polarity = closed ? EffectPolarity.Positive : EffectPolarity.Negative;
 
         var db = RyftEffectDatabase.Load();
-        db?.DebugDumpContents(); // todo - rm after debugging
-        var all = db?.All;
+        if (!db)
+        {
+            Debug.LogError($"[Ryft][Map] RyftEffectDatabase.Load() returned null.");
+            return;
+        }
+
+        var all = db.All;
+        if (all == null || all.Count == 0)
+        {
+            Debug.LogWarning($"[Ryft][Map] RyftEffectDatabase has no entries.");
+            return;
+        }
 
         // collect all candidates that match color + polarity
         var matches = new List<RyftEffectDef>();
@@ -361,16 +371,24 @@ public class MapController : MonoBehaviour
         var verb = closed ? "CLOSED" : "EXPLODED";
         if (matches.Count == 0)
         {
-
+            Debug.LogWarning($"[Ryft][Map] {verb} {color} had 0 matching effects in DB (polarity={polarity}).");
             _resolvedRyfts.Add(ryftNode);
             return;
         }
 
-        // pick one at random
         int idx = UnityEngine.Random.Range(0, matches.Count);
         var chosen = matches[idx];
-        RyftEffectManager.Ensure().OnRyftOutcome(chosen);
+
+        Debug.Log($"[Ryft][Map] {verb} {color}: picked {chosen.id} ({chosen.displayName}) [{chosen.color}/{chosen.polarity}]");
+
+        var mgr = RyftEffectManager.Ensure();
+        mgr.OnRyftOutcome(chosen);
+
+        // mark resolved first, then log the active list
         _resolvedRyfts.Add(ryftNode);
+
+        // optional: quick snapshot of active effects
+        mgr.DebugLogActiveEffects("[Ryft][Map->Mgr]");
     }
 
 
@@ -696,7 +714,7 @@ public class MapController : MonoBehaviour
 
     void ValidateRiftSprites()
     {
-        string[] colors = { "blue", "orange", "green", "yellow", "purple" };
+        string[] colors = { "blue", "orange", "green", "purple" };
         string[] states = { "Rift", "Closed", "Exploded" };
         int ok = 0, miss = 0;
         foreach (var c in colors)

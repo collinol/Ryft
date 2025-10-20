@@ -4,7 +4,7 @@ using Game.Core;
 using Game.Abilities;
 using Game.Abilities.Enemy;
 using Game.UI;
-
+using Game.Combat;
 namespace Game.Enemies
 {
     public abstract class EnemyBase : MonoBehaviour, IActor
@@ -21,7 +21,7 @@ namespace Game.Enemies
         public int     Health     { get; private set; }
         public bool    IsAlive    => Health > 0;
 
-        private HealthBarView hpBar; // <—
+        private HealthBarView hpBar;
 
         [Header("Enemy Ability IDs (from EnemyAbilityDatabase)")]
         [Tooltip("IDs must match AbilityDef.id values in EnemyAbilityDatabase (e.g., \"EnemyStrike\").")]
@@ -73,6 +73,42 @@ namespace Game.Enemies
         {
             if (_abilityRuntimes == null || _abilityRuntimes.Count == 0) return null;
             return _abilityRuntimes[Random.Range(0, _abilityRuntimes.Count)];
+        }
+        public virtual void PerformEnemyAction(FightContext ctx, EnemyAbilityDatabase db)
+        {
+            if (!IsAlive) return;
+            if (db == null)
+            {
+                Debug.LogWarning($"[{DisplayName}] EnemyAbilityDatabase missing.");
+                return;
+            }
+
+            // Choose which ability to use this turn
+            var id = PickEnemyAbilityId();
+            if (string.IsNullOrEmpty(id))
+            {
+                Debug.LogWarning($"[{DisplayName}] has no ability IDs.");
+                return;
+            }
+
+            // Create a NEW runtime instance from DB each time
+            var rt = db.CreateRuntime(id, this);
+            if (rt == null)
+            {
+                Debug.LogWarning($"[{DisplayName}] couldn't create runtime for '{id}'.");
+                return;
+            }
+
+            // Default target is the player; the runtime can ignore/use this as it wants
+            var target = ctx.PlayerActor;
+            rt.Execute(ctx, target);
+        }
+        protected virtual string PickEnemyAbilityId()
+        {
+            if (abilityIds == null || abilityIds.Length == 0) return null;
+            // Randomize if you want:
+            // return abilityIds[UnityEngine.Random.Range(0, abilityIds.Length)];
+            return abilityIds[0];
         }
     }
 }

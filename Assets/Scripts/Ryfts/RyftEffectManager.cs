@@ -2,18 +2,23 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Game.Core;
-using Game.Abilities;
 using Game.Player;
 using Game.Combat;
+using Game.Cards;
 
 namespace Game.Ryfts
 {
+    /// Central place to track active ryft effects and a lightweight "call cost" economy
+    /// used by Blue effects (refunds/surcharges). There is deliberately no concept of
+    /// ability cooldowns here anymore.
     public class RyftEffectManager : MonoBehaviour
     {
         [Header("Debug")]
         [SerializeField] public bool verboseRyftLogs = true;
-        private float nextOutgoingDamageMult = 1f;
-        private string nextOutgoingDamageTag = null;
+
+        // --- One-hit damage modifier plumbing (unchanged) ---
+        private float  nextOutgoingDamageMult = 1f;
+        private string nextOutgoingDamageTag  = null;
         private RyftEffectRuntime nextOutgoingDamageSource = null;
 
         public static RyftEffectManager Instance { get; private set; }
@@ -21,13 +26,108 @@ namespace Game.Ryfts
         [SerializeField] private PlayerCharacter player;             // assign at runtime in fights if null
         [SerializeField] private List<RyftEffectRuntime> active = new();
 
-        // Persisted additive bonuses
-        private int bonusMaxHp, bonusStr, bonusDef;
-        public int BonusMaxHp => bonusMaxHp;
-        public int BonusStrength => bonusStr;
+        // Persisted additive bonuses (meta buffs)
+        private int bonusMaxHp, bonusStr, bonusDef, bonusEng, bonusMana;
+        public int BonusMaxHp   => bonusMaxHp;
+        public int BonusStrength=> bonusStr;
+        public int BonusMana=> bonusMana;
         public int BonusDefense => bonusDef;
+        public int BonusEngineering => bonusEng;
 
-        // temp flags for per-turn hooks
+        // Battle-scoped temporary deltas
+        private int tempMaxHp, tempStr, tempDef, tempMana, tempEng;
+        public int TempMaxHp    => tempMaxHp;
+        public int TempStrength => tempStr;
+        public int TempDefense  => tempDef;
+        public int TempEngineering  => tempEng;
+        public int TempMana  => tempMana;
+
+        // --------- Call-cost economy ----------
+        private int callCredits;
+        private int nextCallCostDelta;
+
+        // Last payment tracking (field + amount) for refunds
+        private Game.Core.StatField lastPaidField = Game.Core.StatField.Strength;
+        private int  lastPaidCost;
+        private bool hasLastPaid;
+        private CardDef lastPlayedCard;
+        public CardDef PeekLastPlayedCardDef() => lastPlayedCard;
+        public bool TryGetLastPaymentField(out Game.Core.StatField f) { f = lastPaidField; return hasLastPaid; }
+
+
+        public void RecordLastPayment(Game.Core.StatField field, int amount)
+        {
+            lastPaidField = field;
+            lastPaidCost  = Mathf.Max(0, amount);
+            hasLastPaid   = true;
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Last payment: field={lastPaidField} amount={lastPaidCost}");
+        }
+
+        public int       PeekLastPaidCostSafe() => hasLastPaid ? lastPaidCost : 0;
+        public Game.Core.StatField PeekLastPaidField() => lastPaidField;
+        public void AddCallCredits(int amount)
+        {
+            callCredits = Mathf.Max(0, callCredits + amount);
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Credits now = {callCredits} (Δ {amount})");
+        }
+
+        public void RefundPercentOfLastCost(float percent01)
+        {
+            if (!hasLastPaid || lastPaidCost <= 0) return;
+            var pct = Mathf.Clamp01(percent01);
+            int refund = Mathf.Max(0, Mathf.RoundToInt(lastPaidCost * pct));
+            if (refund > 0) AddCallCredits(refund);
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Refunded {refund} ({pct:P0}) of last cost {lastPaidCost}");
+        }
+
+        public void AddNextCallCostDelta(int delta)
+        {
+            nextCallCostDelta += delta;
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Next call cost delta now {nextCallCostDelta} (Δ {delta})");
+        }
+
+        public int ApplyCallCost(int baseCost, bool autoUseCredits = true)
+        {
+            int cost = Mathf.Max(0, baseCost + nextCallCostDelta);
+            nextCallCostDelta = 0;
+
+            if (autoUseCredits && callCredits > 0 && cost > 0)
+            {
+                int use = Mathf.Min(callCredits, cost);
+                cost -= use;
+                callCredits -= use;
+                if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Used {use} credits; remaining credits={callCredits}, cost after credits={cost}");
+            }
+
+            // Do NOT record here; CardRuntime records with the actual field via RecordLastPayment(...)
+            return cost;
+        }
+
+        public int PeekCredits() => callCredits;
+
+        // ---------------------------------------------
+
+        public void AddTempMaxHp(int v)    { tempMaxHp += v; }
+        public void AddTempMana(int v)    { tempMana += v; }
+        public void AddTempEngineering(int v)    { tempEng += v; }
+        public void AddTempStrength(int v) { tempStr   += v; }
+        public void AddTempDefense(int v)  { tempDef   += v; }
+
+        public void ClearTemps()
+        {
+            tempMaxHp = tempStr = tempEng = tempMana = tempDef = 0;
+            nextCallCostDelta = 0;
+            hasLastPaid = false;
+            lastPaidCost = 0;
+        }
+
+        private void TickAllEffectsOneTurn()
+        {
+            if (active == null || active.Count == 0) return;
+            var snapshot = active.ToArray();
+            foreach (var r in snapshot) r?.TickTurn(this);
+        }
+
         private bool nextAttackIgnoresDefense;
 
         void Awake()
@@ -35,7 +135,6 @@ namespace Game.Ryfts
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
             Subscribe();
         }
 
@@ -50,6 +149,7 @@ namespace Game.Ryfts
             RyftCombatEvents.OnBattleEnd        += OnBattleEnd;
             RyftCombatEvents.OnTurnStart        += OnTurnStart;
             RyftCombatEvents.OnTurnEnd          += OnTurnEnd;
+
             RyftCombatEvents.OnAbilityUsed      += OnAbilityUsed;
             RyftCombatEvents.OnAbilityResolved  += OnAbilityResolved;
             RyftCombatEvents.OnDamageDealt      += OnDamageDealt;
@@ -72,10 +172,7 @@ namespace Game.Ryfts
 
         // --- Public API ----------------------------------------------------
 
-        public IActor PlayerActor
-        {
-            get { EnsurePlayerRef(); return player; }
-        }
+        public IActor PlayerActor { get { EnsurePlayerRef(); return player; } }
 
         public bool IsPlayer(IActor actor)
         {
@@ -95,17 +192,17 @@ namespace Game.Ryfts
             return go.AddComponent<RyftEffectManager>();
         }
 
-        public void PlayerPermanentStatsDelta(int maxHp = 0, int strength = 0, int defense = 0)
+        public void PlayerPermanentStatsDelta(int maxHp = 0, int strength = 0, int defense = 0, int eng = 0, int mana = 0)
         {
             bonusMaxHp += maxHp;
             bonusStr   += strength;
+            bonusMana   += mana;
+            bonusEng   += eng;
             bonusDef   += defense;
 
             EnsurePlayerRef();
             if (player != null)
             {
-                // If you later expose TotalStats with modifiers, apply them there.
-                // For now, reflect max HP bumps as immediate healing so the benefit is felt.
                 if (maxHp > 0) player.Heal(maxHp);
             }
         }
@@ -114,19 +211,18 @@ namespace Game.Ryfts
         {
             if (!def) return;
 
-            // find existing effect with same ID
             var existing = active.FirstOrDefault(r => r != null && r.Def != null && r.Def.id == def.id);
             if (existing != null)
             {
-                existing.AddStack(1, refreshDuration: true);
+                existing.AddStack(1, refreshDuration: true, mgr: this);
                 Debug.Log($"[Ryft] Stacked {def.id} -> stacks={existing.stacks}, chance={existing.CurrentProcPercent:0.#}%");
                 return;
             }
 
-            var rt = def.CreateRuntime(); // ensure this calls runtime.Bind(def)
+            var rt = def.CreateRuntime();
             active.Add(rt);
             rt.OnAdded(this);
-            Debug.Log($"[Ryft] Added {def.id} -> stacks={rt.stacks}, chance={rt.CurrentProcPercent:0.#}%");
+            Debug.Log($"[Ryft] Added {def.id} — {def.displayName}  [{def.color}/{def.polarity}]");
         }
 
         public void RemoveEffect(RyftEffectRuntime rt)
@@ -138,40 +234,16 @@ namespace Game.Ryfts
 
         public void ClearBattleScoped()
         {
-            // remove UntilBattleEnd and DurationNTurns effects between scenes
             var toRemove = active.Where(a => a.Def.lifetime == EffectLifetime.UntilBattleEnd
                                           || a.Def.lifetime == EffectLifetime.DurationNTurns).ToList();
             foreach (var r in toRemove) RemoveEffect(r);
         }
 
-        // Map interactions (call when ryft is closed/exploded)
-        public void OnRyftOutcome(RyftEffectDef def)
-        {
-            // polarity is encoded in the def (you’ll have distinct POS/NEG defs)
-            AddEffect(def);
-        }
+        public void OnRyftOutcome(RyftEffectDef def) => AddEffect(def);
 
-        // --- Utilities invoked by built-in/custom effects ------------------
         public void TryDoubleCast(RyftEffectContext ctx)
         {
-            if (ctx?.fight == null || ctx.abilityDef == null) return;
-            var fsc = Object.FindObjectOfType<FightSceneController>();
-            if (!fsc) return;
-
-            fsc.UsePlayerAbility(ctx.abilityDef.id, freeCast: true);
-        }
-
-        public void TryResetCooldownOf(AbilityDef def)
-        {
-            if (!def) return;
-            var fsc = Object.FindObjectOfType<FightSceneController>();
-            //fsc?.ResetCooldown(def.id);
-        }
-
-        public void ReduceAllCooldownsBy(int v)
-        {
-            var fsc = Object.FindObjectOfType<FightSceneController>();
-            //fsc?.ReduceAllCooldowns(v);
+            if (verboseRyftLogs) Debug.Log("[Ryft] TryDoubleCast is a no-op for now.");
         }
 
         public void ApplyBarrierPercentToPlayer(float percent)
@@ -179,7 +251,6 @@ namespace Game.Ryfts
             EnsurePlayerRef();
             if (!player) return;
             int amount = Mathf.RoundToInt(Mathf.Max(0, player.TotalStats.maxHealth) * Mathf.Clamp01(percent));
-            // If you have a barrier system, hook into it; fallback is a temporary heal.
             player.Heal(amount);
         }
 
@@ -201,27 +272,18 @@ namespace Game.Ryfts
         {
             if (target == null || !target.IsAlive) return;
 
-            // Nuke via ApplyDamage so all standard clamping runs
             int before = target.Health;
-            target.ApplyDamage(int.MaxValue / 2); // big number, ensures kill through defense
+            target.ApplyDamage(int.MaxValue / 2);
             int dealt = Mathf.Max(0, before - target.Health);
 
-            // Let listeners know what happened (if we know who caused it)
             if (source != null) RyftCombatEvents.RaiseDamageDealt(source, target, dealt);
             if (!target.IsAlive) RyftCombatEvents.RaiseEnemyDefeated(target);
         }
 
-        public void TryAddCooldown(AbilityDef def, int delta)
-        {
-            if (!def) return;
-            var fsc = Object.FindObjectOfType<FightSceneController>();
-            // Implement a method on FightSceneController like: public void AddCooldown(string id, int delta)
-            fsc?.AddCooldown(def.id, delta);
-        }
         /*
-        to modify outgoing damage, in the ability itself use mgr.AppslyOutgoingDamageModifiers(dmg);
-        and in the ryft effect script, set the modifier amount with SetNextOutgoingDamageMultiplier
-        */
+         * To modify outgoing damage for a *single* upcoming hit, call SetNextOutgoingDamageMultiplier
+         * from an effect, and have the card runtime call ApplyOutgoingDamageModifiers on its damage.
+         */
         public void SetNextOutgoingDamageMultiplier(float mult, string tag = null, RyftEffectRuntime src = null)
         {
             nextOutgoingDamageMult = Mathf.Clamp(nextOutgoingDamageMult * mult, 0f, 2f);
@@ -234,21 +296,21 @@ namespace Game.Ryfts
 
         public int ApplyOutgoingDamageModifiers(
             int baseDamage,
-            AbilityDef ability = null,
+            CardDef card = null,
             IActor attacker = null,
-            IActor target = null)
+            IActor target   = null)
         {
             int result = Mathf.Max(0, Mathf.RoundToInt(baseDamage * nextOutgoingDamageMult));
 
             if (verboseRyftLogs)
             {
-                string abil = ability ? ability.id : "(n/a)";
+                string cardId = card ? card.id : "(n/a)";
                 string atk  = attacker != null ? attacker.DisplayName : "(n/a)";
                 string tgt  = target   != null ? target.DisplayName   : "(n/a)";
                 float mult  = nextOutgoingDamageMult;
                 string tag  = nextOutgoingDamageTag ?? "(none)";
 
-                Debug.Log($"[Ryft][DMG] ability={abil} attacker={atk} target={tgt} base={baseDamage} mult={mult:0.###} src={tag} => final={result}");
+                Debug.Log($"[Ryft][DMG] card={cardId} attacker={atk} target={tgt} base={baseDamage} mult={mult:0.###} src={tag} => final={result}");
             }
 
             // consume once
@@ -259,26 +321,211 @@ namespace Game.Ryfts
             return result;
         }
 
+        /// <summary>
+        /// For the rest of THIS TURN, reduce the cost of the given resource by `reduceBy`,
+        /// but never below `minCost` (e.g., 0). Multiple calls stack additively.
+        /// </summary>
+        public void RegisterCostReducer(Game.Core.StatField field, int reduceBy, int minCost = 0)
+        {
+            if (reduceBy <= 0) return;
+            if (turnCostReduceBy.TryGetValue(field, out var r)) turnCostReduceBy[field] = r + reduceBy;
+            else turnCostReduceBy[field] = reduceBy;
+
+            minCost = Mathf.Max(0, minCost);
+            if (turnCostFloor.TryGetValue(field, out var curFloor))
+                turnCostFloor[field] = Mathf.Min(curFloor, minCost);   // keep the lowest floor (e.g., 0 beats 1)
+            else
+                turnCostFloor[field] = minCost;
+
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Reducer registered: {field} -{reduceBy} (min {turnCostFloor[field]}) this turn.");
+        }
+
+        /// <summary>
+        /// Register a persistent (battle-scoped) chance [0..100] that spending the given resource
+        /// refunds that cost back as credits. Multiple calls stack and clamp to 100.
+        /// </summary>
+        public void RegisterRefundChance(Game.Core.StatField field, int chancePct)
+        {
+            chancePct = Mathf.Clamp(chancePct, 0, 100);
+            if (refundChancePct.TryGetValue(field, out var cur)) refundChancePct[field] = Mathf.Clamp(cur + chancePct, 0, 100);
+            else refundChancePct[field] = chancePct;
+
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Refund chance registered: {field} +{chancePct}% (now {refundChancePct[field]}%).");
+        }
+
+
+        // --- Field-scoped temporary refunds ---------------------------------
+        private readonly System.Collections.Generic.Dictionary<Game.Core.StatField, int> tempRefunds
+            = new System.Collections.Generic.Dictionary<Game.Core.StatField, int>();
+
+        public void RegisterTemporaryRefund(Game.Core.StatField field, int count)
+        {
+            if (count <= 0) return;
+            tempRefunds.TryGetValue(field, out var cur);
+            tempRefunds[field] = cur + count;
+            if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Registered {count} temp refunds for {field}; now {tempRefunds[field]}");
+        }
+
+        /// <summary>
+        /// Apply call cost for a specific resource field. If there is a pending temporary refund
+        /// for this field, consume one and make the cost 0. Otherwise fall back to normal ApplyCallCost.
+        /// </summary>
+        public int ApplyCallCostForField(int baseCost, Game.Core.StatField field, bool autoUseCredits = true)
+        {
+            // 1) Field-scoped "next N are free"
+            if (tempRefunds.TryGetValue(field, out var remaining) && remaining > 0)
+            {
+                tempRefunds[field] = remaining - 1;
+                nextCallCostDelta = 0; // consume any pending delta
+                if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Consumed temp refund for {field}; remaining={tempRefunds[field]}");
+                return 0;
+            }
+
+            // 2) Start from base
+            int cost = Mathf.Max(0, baseCost);
+
+            // 3) This-turn reducers & floors (e.g., Momentum)
+            if (turnCostReduceBy.TryGetValue(field, out var reduceBy)) cost = Mathf.Max(0, cost - reduceBy);
+            if (turnCostFloor.TryGetValue(field, out var floor))       cost = Mathf.Max(floor, cost);
+
+            // 4) Global "next call delta" (one-shot) then clamp
+            cost = Mathf.Max(0, cost + nextCallCostDelta);
+            nextCallCostDelta = 0;
+
+            // 5) Spend credits automatically (from previous refunds etc.)
+            if (autoUseCredits && callCredits > 0 && cost > 0)
+            {
+                int use = Mathf.Min(callCredits, cost);
+                cost -= use;
+                callCredits -= use;
+                if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Used {use} credits; remaining credits={callCredits}, cost after credits={cost}");
+            }
+
+            // 6) Roll refund chance AFTER computing final cost (credit back for future plays)
+            if (cost > 0 && refundChancePct.TryGetValue(field, out var pct) && pct > 0)
+            {
+                // UnityEngine.Random.value ∈ [0,1)
+                if (UnityEngine.Random.Range(0, 100) < pct)
+                {
+                    AddCallCredits(cost);
+                    if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Refund chance hit for {field}: credited {cost} back.");
+                }
+            }
+
+            return Mathf.Max(0, cost);
+        }
+        private void ClearTurnCostModifiers()
+        {
+            turnCostReduceBy.Clear();
+            turnCostFloor.Clear();
+        }
+
+        /// <summary>
+        /// Returns a NEW runtime bound to the player for the last card the player resolved,
+        /// optionally only if the last paid resource matched <paramref name="onlyIfCostField"/>.
+        /// This does NOT pay its cost; caller's Execute will do that.
+        /// </summary>
+        public CardRuntime GetLastPlayedCardRuntime(Game.Core.StatField? onlyIfCostField = null, IActor ownerOverride = null)
+        {
+            if (lastPlayedCard == null) return null;
+
+            // If caller cares about the last resource used for that play, gate by it.
+            if (onlyIfCostField.HasValue && hasLastPaid && lastPaidField != onlyIfCostField.Value)
+                return null;
+
+            var type = System.Type.GetType(lastPlayedCard.runtimeTypeName);
+            if (type == null)
+            {
+                if (verboseRyftLogs) Debug.LogWarning($"[Ryft] Runtime type not found: {lastPlayedCard.runtimeTypeName}");
+                return null;
+            }
+
+            var rt = System.Activator.CreateInstance(type) as CardRuntime;
+            if (rt == null)
+            {
+                if (verboseRyftLogs) Debug.LogWarning($"[Ryft] Type is not a CardRuntime: {lastPlayedCard.runtimeTypeName}");
+                return null;
+            }
+
+            var owner = ownerOverride ?? PlayerActor;
+            rt.Bind(lastPlayedCard, owner);
+            return rt;
+        }
+
+
+
+        // --- Per-field cost modifiers (this turn) ------------------------------
+        // Sum of all "reduce cost by X" effects until end of turn.
+        private readonly Dictionary<Game.Core.StatField, int> turnCostReduceBy
+            = new Dictionary<Game.Core.StatField, int>();
+        // Floor (minimum cost) enforced this turn (e.g., min 0).
+        private readonly Dictionary<Game.Core.StatField, int> turnCostFloor
+            = new Dictionary<Game.Core.StatField, int>();
+
+        // --- Per-field refund chance (battle-scoped unless you clear it) -------
+        private readonly Dictionary<Game.Core.StatField, int> refundChancePct
+            = new Dictionary<Game.Core.StatField, int>();
 
 
         // --- Event fan-out to active effects -------------------------------
-        private void Broadcast(RyftTrigger t, FightContext fight = null, IActor src = null, IActor tgt = null, AbilityDef a = null, int amt = 0)
+        private void Broadcast(
+            RyftTrigger t,
+            FightContext fight = null,
+            IActor src = null,
+            IActor tgt = null,
+            CardDef card = null,
+            int amt = 0)
         {
             if (active.Count == 0) return;
-            var ctx = new RyftEffectContext { fight = fight, source = src, target = tgt, abilityDef = a, amount = amt, trigger = t };
-            var snapshot = active.ToArray(); // avoid modification during iteration
+
+            var ctx = new RyftEffectContext
+            {
+                fight   = fight,
+                source  = src,
+                target  = tgt,
+                cardDef = card,
+                amount  = amt,
+                trigger = t
+            };
+
+            var snapshot = active.ToArray();
             foreach (var e in snapshot) e?.HandleTrigger(this, ctx);
         }
 
         private void OnBattleStart(FightContext c)     { EnsurePlayerRef(); Broadcast(RyftTrigger.OnBattleStart, fight:c); }
-        private void OnBattleEnd()                     { Broadcast(RyftTrigger.OnBattleEnd); ClearBattleScoped(); }
-        private void OnTurnStart()                     { Broadcast(RyftTrigger.OnTurnStart); }
-        private void OnTurnEnd()                       { Broadcast(RyftTrigger.OnTurnEnd); }
-        private void OnAbilityUsed(Game.Core.IActor s, AbilityDef a, FightContext c)     { Broadcast(RyftTrigger.OnAbilityUsed, fight:c, src:s, a:a); }
-        private void OnAbilityResolved(Game.Core.IActor s, AbilityDef a, FightContext c) { Broadcast(RyftTrigger.OnAbilityResolved, fight:c, src:s, a:a); }
-        private void OnDamageDealt(Game.Core.IActor s, Game.Core.IActor t, int dmg) { Broadcast(RyftTrigger.OnDamageDealt, src:s, tgt:t, amt:dmg); }
-        private void OnDamageTaken(Game.Core.IActor t, int dmg)                     { Broadcast(RyftTrigger.OnDamageTaken, tgt:t, amt:dmg); }
-        private void OnEnemyDefeated(Game.Core.IActor e)                            { Broadcast(RyftTrigger.OnEnemyDefeated, tgt:e); }
+        private void OnBattleEnd()
+        {
+            Broadcast(RyftTrigger.OnBattleEnd);
+            ClearBattleScoped();
+            ClearTemps();
+            ClearTurnCostModifiers();
+        }
+        private void OnTurnStart()
+        {
+            TickAllEffectsOneTurn();
+            Broadcast(RyftTrigger.OnTurnStart);
+        }
+        private void OnTurnEnd()
+        {
+            Broadcast(RyftTrigger.OnTurnEnd);
+            ClearTurnCostModifiers();
+        }
+
+
+        private void OnAbilityUsed(IActor s, CardDef a, FightContext c)
+            => Broadcast(RyftTrigger.OnAbilityUsed, fight:c, src:s, card:a);
+
+        private void OnAbilityResolved(IActor s, CardDef a, FightContext c)
+        {
+            Broadcast(RyftTrigger.OnAbilityResolved, fight:c, src:s, card:a);
+
+            if (a != null && IsPlayer(s))
+                lastPlayedCard = a;
+        }
+
+        private void OnDamageDealt(IActor s, IActor t, int dmg) { Broadcast(RyftTrigger.OnDamageDealt, src:s, tgt:t, amt:dmg); }
+        private void OnDamageTaken(IActor t, int dmg)           { Broadcast(RyftTrigger.OnDamageTaken, tgt:t, amt:dmg); }
+        private void OnEnemyDefeated(IActor e)                  { Broadcast(RyftTrigger.OnEnemyDefeated, tgt:e); }
 
         /* ---- Logging / Debug ---- */
         public IReadOnlyList<RyftEffectRuntime> ActiveEffects => active;
@@ -309,6 +556,7 @@ namespace Game.Ryfts
             }
             Debug.Log(sb.ToString());
         }
+
         public void DebugLogEffectAction(string action, string detail)
         {
             if (verboseRyftLogs)

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: PurpleExplodedRust
   displayName: Rusty
   description: At battle start, -2 Strength for 2 turns.
-  color: 4
+  color: 3
   polarity: 1
   lifetime: 2
   durationTurns: 2

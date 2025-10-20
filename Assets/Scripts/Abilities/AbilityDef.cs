@@ -18,7 +18,7 @@ namespace Game.Abilities
         public int baseCooldown = 1;
 
         [Header("Numbers (optional, used by generic abilities)")]
-        public int power = 5;      // e.g., damage/heal base amount
+        public int power = 10;      // e.g., damage/heal base amount
         public int scaling = 1;    // applied with strength, etc.
 
         [Header("Runtime Class")]
