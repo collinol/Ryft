@@ -13,7 +13,7 @@ namespace Game.Enemies
         [SerializeField] protected string displayName = "Enemy";
 
         [Header("Stats")]
-        [SerializeField] protected Stats baseStats = new Stats { maxHealth = 10, strength = 2, defense = 0 };
+        [SerializeField] protected Stats baseStats = new Stats { maxHealth = 10, strength = 2 };
 
         public string DisplayName => displayName;
         public Stats   BaseStats  => baseStats;
@@ -42,7 +42,7 @@ namespace Game.Enemies
         // IActor
         public void ApplyDamage(int amount)
         {
-            var mitigated = Mathf.Max(0, amount - TotalStats.defense);
+            var mitigated = Mathf.Max(0, amount);
             Health = Mathf.Max(0, Health - mitigated);
             hpBar?.Set(Health, TotalStats.maxHealth);
         }

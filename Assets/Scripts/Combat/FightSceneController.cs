@@ -14,6 +14,7 @@ using Game.Abilities.Enemy;
 
 namespace Game.Combat
 {
+    [DefaultExecutionOrder(-100)]
     public class FightSceneController : MonoBehaviour
     {
         [Header("Scene Refs")]
@@ -44,10 +45,14 @@ namespace Game.Combat
         private readonly Dictionary<string, CardRuntime> runtimeById = new();
         private bool dealtOpeningHand = false;
 
+        [SerializeField, Min(0)] private int maxEnergyPerTurn = 3;
+        public int CurrentEnergy { get; private set; }
+        public int MaxEnergy => Mathf.Max(0, maxEnergyPerTurn);
+
         private CardRuntime pendingTargetedCard;
 
         public static FightSceneController Instance { get; private set; }
-
+        public event Action<int,int> OnEnergyChanged;
         void Awake()
         {
             Instance = this;
@@ -94,6 +99,7 @@ namespace Game.Combat
 
         private void StartPlayerTurn()
         {
+            SetEnergy(MaxEnergy);
             player.RefreshTurnStats();
 
             int cap = EffectiveMaxHandSize();
@@ -121,6 +127,13 @@ namespace Game.Combat
             int need = Mathf.Max(0, targetSize - hand.Count);
             if (need > 0) Draw(need);
         }
+        public void DrawCards(int n)
+        {
+            if (n <= 0) return;
+            Draw(n);
+            RefreshHandUI();
+            ctx?.Log($"You draw {n} card{(n==1?"":"s")}.");
+        }
 
         public void EndPlayerTurnButton()
         {
@@ -143,6 +156,33 @@ namespace Game.Combat
             // Back to player
             if (turnBanner) turnBanner.Show("Player Turn");
             StartPlayerTurn();
+        }
+
+        private void SetEnergy(int value)
+        {
+            CurrentEnergy = Mathf.Clamp(value, 0, MaxEnergy);
+            OnEnergyChanged?.Invoke(CurrentEnergy, MaxEnergy);
+        }
+
+        void OnEnable()
+        {
+            RyftCombatEvents.OnResourceRefund += HandleResourceRefund;
+        }
+
+        void OnDisable()
+        {
+            RyftCombatEvents.OnResourceRefund -= HandleResourceRefund;
+        }
+
+        private void HandleResourceRefund(IActor who, StatField field, int amount)
+        {
+            // Only player refunds, only Energy
+            if (amount <= 0) return;
+            if (!ReferenceEquals(who, player)) return;
+            if (field != StatField.Energy) return;
+
+            SetEnergy(CurrentEnergy + amount);               // instantly add refunded energy
+            Debug.Log($"[Energy Refund] +{amount} → {CurrentEnergy}/{MaxEnergy}");
         }
 
         // ========== Cards ==========
@@ -175,9 +215,9 @@ namespace Game.Combat
                 case Game.Cards.TargetingType.Self:
                 {
                     var owner = player as IActor;
-                    RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                    RyftCombatEvents.RaiseAbilityUsed(owner, rt.Def, ctx);
                     rt.Execute(ctx, player);
-                    RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+                    RyftCombatEvents.RaiseAbilityResolved(owner, rt.Def, ctx);
                     DiscardFromHand(index);
                     break;
                 }
@@ -189,9 +229,9 @@ namespace Game.Combat
                 case Game.Cards.TargetingType.AllEnemies:
                 {
                     var owner = player as IActor;
-                    RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                    RyftCombatEvents.RaiseAbilityUsed(owner, rt.Def, ctx);
                     rt.Execute(ctx, null);
-                    RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+                    RyftCombatEvents.RaiseAbilityResolved(owner, rt.Def, ctx);
                     DiscardFromHand(index);
                     break;
                 }
@@ -211,9 +251,9 @@ namespace Game.Combat
             if (handIndex >= 0)
             {
                 var owner = player as IActor;
-                RyftCombatEvents.RaiseAbilityUsed(owner, null, ctx);
+                RyftCombatEvents.RaiseAbilityUsed(owner, pendingTargetedCard.Def, ctx);
                 pendingTargetedCard.Execute(ctx, enemy);
-                RyftCombatEvents.RaiseAbilityResolved(owner, null, ctx);
+                RyftCombatEvents.RaiseAbilityResolved(owner, pendingTargetedCard.Def, ctx);
 
                 DiscardFromHand(handIndex);
                 RefreshHandUI();
@@ -312,6 +352,27 @@ namespace Game.Combat
             {
                 if (e && e.IsAlive) yield return e;  // EnemyBase implements IActor
             }
+        }
+        public bool CanAffordEnergy(int cost) => cost <= Mathf.Max(0, CurrentEnergy + Game.Ryfts.RyftEffectManager.Ensure().PeekCredits());
+
+        public bool TrySpendEnergy(int baseCost)
+        {
+            var mgr  = Game.Ryfts.RyftEffectManager.Ensure();
+            int cost = mgr.ApplyCallCostForField(Mathf.Max(0, baseCost), Game.Core.StatField.Energy, autoUseCredits: true);
+
+            // Record the energy payment so refunds hit Energy
+            mgr.RecordLastPayment(Game.Core.StatField.Energy, cost);
+
+            if (cost == 0)
+            {
+                OnEnergyChanged?.Invoke(CurrentEnergy, MaxEnergy);
+                return true;
+            }
+
+            if (CurrentEnergy < cost) return false;
+
+            SetEnergy(CurrentEnergy - cost);
+            return true;
         }
 
     }

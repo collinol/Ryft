@@ -54,6 +54,10 @@ namespace Game.Ryfts
         public CardDef PeekLastPlayedCardDef() => lastPlayedCard;
         public bool TryGetLastPaymentField(out Game.Core.StatField f) { f = lastPaidField; return hasLastPaid; }
 
+        // Card Draw
+        private int drawEveryN_cardsThreshold = 0;
+        private int drawEveryN_drawAmount     = 0;
+        private int drawEveryN_counter        = 0;
 
         public void RecordLastPayment(Game.Core.StatField field, int amount)
         {
@@ -192,13 +196,12 @@ namespace Game.Ryfts
             return go.AddComponent<RyftEffectManager>();
         }
 
-        public void PlayerPermanentStatsDelta(int maxHp = 0, int strength = 0, int defense = 0, int eng = 0, int mana = 0)
+        public void PlayerPermanentStatsDelta(int maxHp = 0, int strength = 0, int eng = 0, int mana = 0)
         {
             bonusMaxHp += maxHp;
             bonusStr   += strength;
             bonusMana   += mana;
             bonusEng   += eng;
-            bonusDef   += defense;
 
             EnsurePlayerRef();
             if (player != null)
@@ -353,6 +356,15 @@ namespace Game.Ryfts
             if (verboseRyftLogs) Debug.Log($"[Ryft][COST] Refund chance registered: {field} +{chancePct}% (now {refundChancePct[field]}%).");
         }
 
+        public void RegisterDrawEveryNCards(int n, int drawAmount)
+        {
+            drawEveryN_cardsThreshold = Mathf.Max(1, n);
+            drawEveryN_drawAmount     += Mathf.Max(1, drawAmount);
+            drawEveryN_counter        = 0;
+            if (verboseRyftLogs)
+                Debug.Log($"[Ryft][DRAW] Registered: every {drawEveryN_cardsThreshold} plays → draw {drawEveryN_drawAmount}.");
+        }
+
 
         // --- Field-scoped temporary refunds ---------------------------------
         private readonly System.Collections.Generic.Dictionary<Game.Core.StatField, int> tempRefunds
@@ -499,6 +511,9 @@ namespace Game.Ryfts
             ClearBattleScoped();
             ClearTemps();
             ClearTurnCostModifiers();
+            drawEveryN_cardsThreshold = 0;
+            drawEveryN_drawAmount     = 0;
+            drawEveryN_counter        = 0;
         }
         private void OnTurnStart()
         {
@@ -521,6 +536,19 @@ namespace Game.Ryfts
 
             if (a != null && IsPlayer(s))
                 lastPlayedCard = a;
+
+            if (IsPlayer(s) && a != null && drawEveryN_cardsThreshold > 0 && drawEveryN_drawAmount > 0)
+            {
+                drawEveryN_counter++;
+                if (drawEveryN_counter % drawEveryN_cardsThreshold == 0)
+                {
+                    // ask fight to draw
+                    var fsc = Game.Combat.FightSceneController.Instance;
+                    fsc?.DrawCards(drawEveryN_drawAmount);
+                    if (verboseRyftLogs)
+                        Debug.Log($"[Ryft][DRAW] Threshold hit ({drawEveryN_counter}). Drew {drawEveryN_drawAmount}.");
+                }
+            }
         }
 
         private void OnDamageDealt(IActor s, IActor t, int dmg) { Broadcast(RyftTrigger.OnDamageDealt, src:s, tgt:t, amt:dmg); }

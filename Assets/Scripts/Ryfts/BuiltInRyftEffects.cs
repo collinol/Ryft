@@ -21,8 +21,11 @@ namespace Game.Ryfts
                     case BuiltInOp.AddStrength:
                         mgr.PlayerPermanentStatsDelta(strength: Def.intMagnitude);
                         break;
-                    case BuiltInOp.AddDefense:
-                        mgr.PlayerPermanentStatsDelta(defense: Def.intMagnitude);
+                    case BuiltInOp.AddMana:
+                        mgr.PlayerPermanentStatsDelta(strength: Def.intMagnitude);
+                        break;
+                    case BuiltInOp.AddEngineering:
+                        mgr.PlayerPermanentStatsDelta(strength: Def.intMagnitude);
                         break;
                 }
             }

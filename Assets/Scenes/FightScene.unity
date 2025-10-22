@@ -377,6 +377,8 @@ MonoBehaviour:
   player: {fileID: 1920224603}
   text: {fileID: 291808685}
   showNames: 1
+  showEnergy: 1
+  showEnergyCredits: 1
 --- !u!114 &291808685
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3132,6 +3134,7 @@ MonoBehaviour:
   enemyActionDelay: 0.6
   handUI: {fileID: 0}
   maxHandSize: 0
+  maxEnergyPerTurn: 3
 --- !u!4 &1678955860
 Transform:
   m_ObjectHideFlags: 0
@@ -4219,7 +4222,6 @@ MonoBehaviour:
     strength: 2
     mana: 0
     engineering: 0
-    defense: 1
   abilityIds: []
 --- !u!4 &2088231163
 Transform:

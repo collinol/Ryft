@@ -1,17 +1,16 @@
-// Assets/Scripts/Abilities/EnemyAbilities/EnemyStrikeAbility.cs
 using UnityEngine;
 using Game.Core;
 using Game.Combat;
+using Game.Cards;
 
 namespace Game.Abilities.EnemyAbilities
 {
-    /// Deal Def.power (e.g., 5) to the player.
+
     public class EnemyStrikeAbility : AbilityRuntime
     {
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-
             var target = explicitTarget ?? ctx.Player;
             if (target == null || !target.IsAlive) return;
 

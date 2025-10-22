@@ -29,7 +29,6 @@ namespace Game.Player
                     maxHealth = BaseStats.maxHealth,
                     strength  = BaseStats.strength,
                     mana        = BaseStats.mana,
-                    defense   = BaseStats.defense,
                     engineering = BaseStats.engineering
                 };
 
@@ -40,14 +39,12 @@ namespace Game.Player
                     s.maxHealth += mgr.BonusMaxHp;
                     s.strength  += mgr.BonusStrength;
                     s.mana  += mgr.BonusMana;
-                    s.defense   += mgr.BonusDefense;
                     s.engineering += mgr.BonusEngineering;
 
                     // temporary (battle-scoped)
                     s.maxHealth += mgr.TempMaxHp;
                     s.strength  += mgr.TempStrength;
                     s.mana  += mgr.TempMana;
-                    s.defense   += mgr.TempDefense;
                     s.engineering   += mgr.TempEngineering;
                 }
 
@@ -66,8 +63,8 @@ namespace Game.Player
 
         void Awake()
         {
-            baseStats = new Stats { maxHealth = 30, strength = 5, mana = 5, engineering = 5, defense = 5 };
-            currentTurnStats = new Stats { maxHealth = 30,  strength = 5, mana = 5, engineering = 5, defense = 5 };
+            baseStats = new Stats { maxHealth = 30, strength = 1, mana = 1, engineering = 1};
+            currentTurnStats = new Stats { maxHealth = 30,  strength = 1, mana = 1, engineering = 1};
 
 
             Health = Mathf.Max(1, TotalStats.maxHealth);
@@ -89,7 +86,6 @@ namespace Game.Player
                 strength  = Mathf.Min(cap.strength, currentTurnStats.strength + Math.Max(0, gain.strength)),
                 mana        = Mathf.Min(cap.mana,        currentTurnStats.mana        + Math.Max(0, gain.mana)),
                 engineering = Mathf.Min(cap.engineering, currentTurnStats.engineering + Math.Max(0, gain.engineering)),
-                defense     = currentTurnStats.defense
             };
             OnTurnStatsChanged?.Invoke(currentTurnStats);
         }
@@ -104,7 +100,7 @@ namespace Game.Player
 
         public void ApplyDamage(int amount)
         {
-            var mitigated = Mathf.Max(0, amount - TotalStats.defense);
+            var mitigated = Mathf.Max(0, amount);
             Health = Mathf.Max(0, Health - mitigated);
             hpBar?.Set(Health, TotalStats.maxHealth);
             RyftCombatEvents.RaiseDamageTaken(this, mitigated);
@@ -129,7 +125,6 @@ namespace Game.Player
                 maxHealth = t.maxHealth, // not spendable, but kept for completeness
                 strength  = t.strength,
                 mana  = t.mana,
-                defense   = t.defense,
                 engineering   = t.engineering
             };
             OnTurnStatsChanged?.Invoke(currentTurnStats);
@@ -146,7 +141,7 @@ namespace Game.Player
 
         public void Pay(Stats cost)
         {
-            Debug.Log($"[PC.Pay] BEFORE  STR={currentTurnStats.strength}, DEF={currentTurnStats.defense}, ENG={currentTurnStats.engineering} | COST S={cost.strength} D={cost.defense} E={cost.engineering}");
+            Debug.Log($"[PC.Pay] BEFORE  STR={currentTurnStats.strength}, ENG={currentTurnStats.engineering} | COST S={cost.strength} E={cost.engineering}");
 
             currentTurnStats = new Stats
             {
@@ -154,10 +149,9 @@ namespace Game.Player
                 strength    = Mathf.Max(0, currentTurnStats.strength    - Mathf.Max(0, cost.strength)),
                 mana        = Mathf.Max(0, currentTurnStats.mana        - Mathf.Max(0, cost.mana)),        // NEW
                 engineering = Mathf.Max(0, currentTurnStats.engineering - Mathf.Max(0, cost.engineering)),
-                defense     = currentTurnStats.defense
             };
 
-            Debug.Log($"[PC.Pay]  AFTER  STR={currentTurnStats.strength}, DEF={currentTurnStats.defense}, ENG={currentTurnStats.engineering}");
+            Debug.Log($"[PC.Pay]  AFTER  STR={currentTurnStats.strength}, ENG={currentTurnStats.engineering}");
             OnTurnStatsChanged?.Invoke(currentTurnStats);
         }
 

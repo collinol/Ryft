@@ -8,7 +8,8 @@ namespace Game.Ryfts
             mgr.PlayerPermanentStatsDelta(
                 maxHp:   Def.builtIn == BuiltInOp.AddMaxHealth ? Def.intMagnitude : 0,
                 strength:Def.builtIn == BuiltInOp.AddStrength  ? Def.intMagnitude : 0,
-                defense: Def.builtIn == BuiltInOp.AddDefense   ? Def.intMagnitude : 0
+                mana:Def.builtIn == BuiltInOp.AddMana  ? Def.intMagnitude : 0,
+                eng:Def.builtIn == BuiltInOp.AddEngineering  ? Def.intMagnitude : 0
             );
         }
 

@@ -2,59 +2,94 @@ using UnityEngine;
 using Game.Player;
 using Game.Core;
 using TMPro;
+using Game.Ryfts;
+using Game.Combat;
 
 namespace Game.UI
 {
-    /// Attach this to a World-Space canvas Text under the Player, or give it a TMP_Text explicitly.
     public class PlayerStatsLabel : MonoBehaviour
     {
         [Header("Refs")]
         [SerializeField] private PlayerCharacter player;
-        [SerializeField] private TMP_Text text;     // Or use UnityEngine.UI.Text and change type/signature
+        [SerializeField] private TMP_Text text;
 
         [Header("Format")]
-        [Tooltip("If true, shows labels like STR/DEF, otherwise just '5/0'.")]
         [SerializeField] private bool showNames = false;
+        [SerializeField] private bool showEnergy = true;
+        [SerializeField] private bool showEnergyCredits = true;
+
+        private FightSceneController fsc;
 
         void Awake()
         {
             if (!player) player = FindObjectOfType<PlayerCharacter>();
             if (!text)   text   = GetComponent<TMP_Text>();
+            // do NOT subscribe here—controller might not be alive yet
+        }
 
-            if (player != null)
-                player.OnTurnStatsChanged += HandleTurnStatsChanged;
+        void OnEnable()
+        {
+            if (!player) player = FindObjectOfType<PlayerCharacter>();
+            if (player)  player.OnTurnStatsChanged += HandleTurnStatsChanged;
 
-            // seed the label with current values
+            BindController();
             RefreshNow();
         }
 
-        void OnDestroy()
+        void OnDisable()
         {
-            if (player != null)
-                player.OnTurnStatsChanged -= HandleTurnStatsChanged;
+            if (player) player.OnTurnStatsChanged -= HandleTurnStatsChanged;
+            if (fsc)    fsc.OnEnergyChanged       -= HandleEnergyChanged;
         }
 
-        private void HandleTurnStatsChanged(Stats s) => SetLabel(s);
+        private void BindController()
+        {
+            // (Re)grab instance and subscribe if available
+            var inst = FightSceneController.Instance;
+            if (inst != fsc)
+            {
+                if (fsc) fsc.OnEnergyChanged -= HandleEnergyChanged;
+                fsc = inst;
+                if (fsc) fsc.OnEnergyChanged += HandleEnergyChanged;
+            }
+        }
+
+        private void HandleTurnStatsChanged(Stats s)           => Render(s);
+        private void HandleEnergyChanged(int current, int max) => RefreshNow();
 
         private void RefreshNow()
         {
             if (!player) return;
-            SetLabel(player.CurrentTurnStats);
+            if (!fsc) BindController();     // late-binding in case controller spawned after us
+            Render(player.CurrentTurnStats);
         }
 
-        private void SetLabel(Stats s)
+        private void Render(Stats s)
         {
             if (!text) return;
 
-            // exactly as requested: "strength/defense" like "5/0"
-            if (!showNames)
+            string statsPart = showNames
+                ? $"STR {s.strength} / MANA {s.mana} / ENG {s.engineering}"
+                : $"{s.strength}/{s.mana}/{s.engineering}";
+
+            string energyPart = "";
+            if (showEnergy && fsc != null)
             {
-                text.text = $"{s.strength}/{s.mana}/{s.engineering}";
+                int cur = fsc.CurrentEnergy;
+                int max = fsc.MaxEnergy;
+
+                string credit = "";
+                if (showEnergyCredits)
+                {
+                    int credits = RyftEffectManager.Ensure().PeekCredits();
+                    if (credits > 0) credit = $" (+{credits})";
+                }
+
+                energyPart = showNames ? $"EN {cur}/{max}{credit}" : $"{cur}/{max}{credit}";
+
             }
-            else
-            {
-                text.text = $"STR {s.strength} / MANA {s.mana} / ENG {s.engineering}";
-            }
+
+            text.text = showEnergy && fsc != null ? $"{energyPart} | {statsPart}" : statsPart;
         }
     }
 }

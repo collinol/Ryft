@@ -1,21 +1,24 @@
 using UnityEngine;
-using Game.Core; using Game.Combat;
+using Game.Core;
+using Game.Combat;
+using Game.Ryfts;
 
 namespace Game.Cards
 {
-    public class DamageSingleCard : CardRuntime
+    public abstract class DamageSingleCard : CardRuntime
     {
-        protected override StatField CostField => StatField.Strength;
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-            if (!TryPayCost()) return;
+            if (!TryPayEnergy()) return;
 
             var target = explicitTarget ?? ctx.FirstAliveEnemy();
             if (target == null) return;
 
-            int stat = GetOwnerMaxFor(CostField);
+            int stat = GetOwnerCurrentFor(ScalingStat);
             int dmg  = Mathf.Max(1, GetBasePower() + stat * GetScaling());
+            var mgr = RyftEffectManager.Ensure();
+            dmg = mgr.ApplyOutgoingDamageModifiers(dmg, Def, Owner, target);
             target.ApplyDamage(dmg);
             ctx.Log($"{Owner.DisplayName} uses {Def.displayName} for {dmg} damage on {target.DisplayName}.");
         }

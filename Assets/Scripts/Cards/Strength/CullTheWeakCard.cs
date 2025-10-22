@@ -1,18 +1,16 @@
-// Assets/Scripts/Cards/ShootCard.cs
 using UnityEngine;
 using Game.Core;
 using Game.Combat;
 
 namespace Game.Cards
 {
-    public class GrenadeCard : DamageAllCard
+    public class CullTheWeakCard : DamageSingleCard
     {
-        // Explicit: pays with engineering
         protected override int GetEnergyCost() => 1;
         protected override int GetBasePower()  => 6;
         protected override int GetScaling()    => 1;
-        protected override StatField ScalingStat => StatField.Engineering;
-
+        public override TargetingType Targeting => TargetingType.SingleEnemy;
+        protected override StatField ScalingStat => StatField.Strength;
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
@@ -21,20 +19,21 @@ namespace Game.Cards
             var target = explicitTarget ?? ctx.FirstAliveEnemy();
             if (target == null) return;
 
-            var attacker = Owner;
             int stat = GetOwnerCurrentFor(ScalingStat);
             int dmg  = Mathf.Max(1, GetBasePower() + stat * GetScaling());
-            var victims = ctx.AllAliveEnemies();
-            int hitCount = 0;
-            foreach (var enemy in victims)
+            float fullDamage = 0;
+            if (target.Health * 1f < .3*target.TotalStats.maxHealth )
             {
-                enemy.ApplyDamage(dmg);
-                hitCount++;
+                fullDamage = dmg*1.5f;
             }
-            attacker.ApplyDamage(2);
-
-            if (hitCount > 0)
-                ctx.Log($"{attacker.DisplayName} throws {Def.displayName}, dealing {dmg} to all enemies ({hitCount}).");
+            else
+            {
+                fullDamage = dmg * 1f;
+            }
+            target.ApplyDamage(Mathf.RoundToInt(fullDamage));
+            ctx.Log($"{Owner.DisplayName} uses {Def.displayName} for {fullDamage} damage on {target.DisplayName}.");
         }
+
     }
+
 }

@@ -17,21 +17,36 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 98386736f2aec7f4ca753c7a0e0d4f92, type: 2}
   - {fileID: 11400000, guid: 5a7995ba48ba5ac4481c9b8f11273b3f, type: 2}
   - {fileID: 11400000, guid: e0b7ad0ab41c5e14590a09931e00ba2e, type: 2}
+  - {fileID: 11400000, guid: c820de68f7c3ec048be883257730fea3, type: 2}
+  - {fileID: 11400000, guid: 4ee1c35320e6b1640be20163e3b3256b, type: 2}
+  - {fileID: 11400000, guid: 659a897125f6a564a9212840aa32200a, type: 2}
   availability:
   - card: {fileID: 11400000, guid: 7edee0bc59a32cc42a29d86a37bf9717, type: 2}
-    available: 3
+    available: 2
     maxCopies: 0
     rewardEligible: 0
   - card: {fileID: 11400000, guid: 98386736f2aec7f4ca753c7a0e0d4f92, type: 2}
-    available: 3
+    available: 5
     maxCopies: 0
     rewardEligible: 0
   - card: {fileID: 11400000, guid: 5a7995ba48ba5ac4481c9b8f11273b3f, type: 2}
-    available: 1
+    available: 2
     maxCopies: 0
     rewardEligible: 0
   - card: {fileID: 11400000, guid: e0b7ad0ab41c5e14590a09931e00ba2e, type: 2}
-    available: 5
+    available: 2
+    maxCopies: 0
+    rewardEligible: 0
+  - card: {fileID: 11400000, guid: c820de68f7c3ec048be883257730fea3, type: 2}
+    available: 2
+    maxCopies: 0
+    rewardEligible: 0
+  - card: {fileID: 11400000, guid: 4ee1c35320e6b1640be20163e3b3256b, type: 2}
+    available: 2
+    maxCopies: 0
+    rewardEligible: 0
+  - card: {fileID: 11400000, guid: 659a897125f6a564a9212840aa32200a, type: 2}
+    available: 1
     maxCopies: 0
     rewardEligible: 0
   rewardWeights:

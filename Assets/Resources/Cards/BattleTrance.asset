@@ -9,15 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8b7df05a7881ad840ab38bdafe4c099c, type: 3}
-  m_Name: EnemyStrike
+  m_Script: {fileID: 11500000, guid: 21dd28f43b7839347b227692fda9017b, type: 3}
+  m_Name: BattleTrance
   m_EditorClassIdentifier: 
-  id: EnemyStrikeAbility
-  displayName: Strike
+  id: BattleTranceCard
+  displayName: Battle Trance
   description: 
   icon: {fileID: 0}
   targeting: 2
-  baseCooldown: 1
-  power: 10
+  energyCost: 1
+  power: 5
   scaling: 1
-  runtimeTypeName: Game.Abilities.EnemyAbilities.EnemyStrikeAbility
+  runtimeTypeName: Game.Cards.BattleTranceCard
+  rarity: 0

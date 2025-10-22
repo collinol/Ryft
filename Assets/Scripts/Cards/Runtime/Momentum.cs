@@ -3,13 +3,12 @@ using Game.Core; using Game.Combat; using Game.Ryfts;
 
 namespace Game.Cards
 {
-    public class MomentumCard : CardRuntime
+    public abstract class MomentumCard : CardRuntime
     {
-        protected override StatField CostField => StatField.Strength;
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-            if (!TryPayCost()) return;
+            if (!TryPayEnergy()) return;
 
             var mgr = RyftEffectManager.Ensure();
             mgr.RegisterCostReducer(StatField.Strength, reduceBy: Def.power, minCost: 0); // implement reducer in manager

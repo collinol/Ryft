@@ -19,6 +19,7 @@ namespace Game.Cards
         public TargetingType targeting = TargetingType.SingleEnemy;
 
         [Header("Numbers")]
+        public int energyCost = 1;
         public int power   = 5;
         public int scaling = 1;
 

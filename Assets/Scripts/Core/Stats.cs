@@ -1,4 +1,3 @@
-// Game.Core/Stats.cs
 using System;
 using UnityEngine;
 
@@ -11,24 +10,22 @@ namespace Game.Core
         public int strength;
         public int mana;
         public int engineering;
-        public int defense;
 
-        public static Stats Zero => new Stats { maxHealth = 0, strength = 0, mana = 0, engineering = 0, defense = 0 };
+        public static Stats Zero => new Stats { maxHealth = 0, strength = 0, mana = 0, engineering = 0 };
 
         public static Stats operator +(Stats a, Stats b) => new Stats
         {
-            maxHealth  = a.maxHealth  + b.maxHealth,
-            strength   = a.strength   + b.strength,
-            mana       = a.mana       + b.mana,
-            engineering= a.engineering+ b.engineering,
-            defense    = a.defense    + b.defense
+            maxHealth   = a.maxHealth   + b.maxHealth,
+            strength    = a.strength    + b.strength,
+            mana        = a.mana        + b.mana,
+            engineering = a.engineering + b.engineering
         };
     }
 }
 
 namespace Game.Core
 {
-    public enum StatField { Strength, Mana, Engineering, Defense, MaxHealth }
+    public enum StatField { Strength, Mana, Engineering, MaxHealth, Energy }
 
     public static class StatsUtil
     {
@@ -36,9 +33,9 @@ namespace Game.Core
         {
             StatField.MaxHealth   => s.maxHealth,
             StatField.Strength    => s.strength,
-            StatField.Mana        => s.mana,           // NEW
+            StatField.Mana        => s.mana,
             StatField.Engineering => s.engineering,
-            StatField.Defense     => s.defense,
+            // Energy is a battle resource (not stored in Stats)
             _ => 0
         };
 
@@ -49,9 +46,9 @@ namespace Game.Core
             {
                 case StatField.MaxHealth:   s.maxHealth   = v; break;
                 case StatField.Strength:    s.strength    = v; break;
-                case StatField.Mana:        s.mana        = v; break;        // NEW
+                case StatField.Mana:        s.mana        = v; break;
                 case StatField.Engineering: s.engineering = v; break;
-                case StatField.Defense:     s.defense     = v; break;
+                // Energy is not stored in Stats
             }
         }
 

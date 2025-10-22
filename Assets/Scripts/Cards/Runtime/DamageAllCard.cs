@@ -3,17 +3,16 @@ using Game.Core; using Game.Combat;
 
 namespace Game.Cards
 {
-    public class DamageAllCard : CardRuntime
+    public abstract class DamageAllCard : CardRuntime
     {
-        protected override StatField CostField => StatField.Engineering;
-        protected override int GetBaseCostAmount(StatField field) => 1;
+        protected override int GetEnergyCost() => 1;
 
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-            if (!TryPayCost()) return;
+            if (!TryPayEnergy()) return;
 
-            int stat = GetOwnerMaxFor(CostField);
+            int stat = GetOwnerCurrentFor(ScalingStat);
             int dmg  = Mathf.Max(1, GetBasePower() + stat * GetScaling());
 
             int hits = 0;

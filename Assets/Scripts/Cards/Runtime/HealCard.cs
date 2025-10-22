@@ -3,18 +3,17 @@ using Game.Core; using Game.Combat;
 
 namespace Game.Cards
 {
-    public class HealCard : CardRuntime
+    public abstract class HealCard : CardRuntime
     {
-        protected override StatField CostField => StatField.Mana;
-        protected override int GetBaseCostAmount(StatField field) => 1;
+        protected override int GetEnergyCost() => 1;
 
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-            if (!TryPayCost()) return;
+            if (!TryPayEnergy()) return;
 
             var target = explicitTarget ?? ctx.PlayerActor;
-            int stat = GetOwnerMaxFor(CostField);
+            int stat = GetOwnerCurrentFor(ScalingStat);
             int heal  = Mathf.Max(1, GetBasePower() + stat * GetScaling());
             target.Heal(heal);
             ctx.Log($"{Owner.DisplayName} uses {Def.displayName} and heals {heal} HP.");

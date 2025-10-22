@@ -2,16 +2,12 @@ using Game.Core; using Game.Combat;
 
 namespace Game.Cards
 {
-    public class BuffCard : CardRuntime
+    public abstract class BuffCard : CardRuntime
     {
-        // Choose which stat to buff by naming convention (displayName contains STR/MANA/ENG) or add a small param to description.
-        protected override StatField CostField => StatField.Strength;
-
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {
             if (!CanUse(ctx)) return;
-            if (!TryPayCost()) return;
-
+            if (!TryPayEnergy()) return;
             var pc = Owner as Game.Player.PlayerCharacter;
             if (pc == null) return;
 

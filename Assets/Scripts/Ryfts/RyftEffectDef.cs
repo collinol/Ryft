@@ -6,7 +6,7 @@ namespace Game.Ryfts
     {
         None,
         // Permanent or timed stat mods
-        AddMaxHealth, AddStrength, AddDefense,
+        AddMaxHealth, AddStrength, AddMana, AddEngineering,
         // Chance-based triggers
         ChanceDoubleCast, ChanceShieldOnBattleStart, ChanceHealOnHit, ChanceIgnoreDefense,
     }
