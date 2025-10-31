@@ -6,16 +6,37 @@ namespace Game.Equipment
     [CreateAssetMenu(menuName = "Game/Equipment", fileName = "Equip_")]
     public class EquipmentDef : ScriptableObject
     {
-        public string id;
+        [Header("Identity")]
+        public string id;                 // unique key (string)
         public string displayName;
-        public EquipmentSlot slot;
+        [TextArea] public string description;
         public Sprite icon;
 
-        [Header("Stats")]
-        public Stats modifiers;
+        [Header("Slot & Durability")]
+        public EquipmentSlot slot = EquipmentSlot.None;
+        [Min(0)] public int maxDurability = 0; // 0 = unbreakable
 
-        [Header("Durability")]
-        public int maxDurability = 20;
-        public bool breaksWhenZero = true;
+        [Header("Stat Bonuses")]
+        public Stats bonusStats; // adds to TotalStats while equipped
+
+        [Header("Optional Effect")]
+        // Fully-qualified class name that implements IEquipmentEffect
+        public string runtimeEffectTypeName;
+
+        #if UNITY_EDITOR
+        void OnValidate()
+        {
+            // Auto-fill id from asset name if empty
+            if (string.IsNullOrWhiteSpace(id))
+                id = name;
+
+            // Gentle sanity warnings in editor
+            if (slot == EquipmentSlot.None)
+                Debug.LogWarning($"{name}: Equipment slot is None — it cannot be equipped into Character grid.");
+            if (!icon)
+                Debug.LogWarning($"{name}: No icon assigned — it will appear blank in the UI.");
+        }
+        #endif
+
     }
 }

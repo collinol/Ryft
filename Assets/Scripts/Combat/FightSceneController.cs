@@ -48,7 +48,7 @@ namespace Game.Combat
         [SerializeField, Min(0)] private int maxEnergyPerTurn = 3;
         public int CurrentEnergy { get; private set; }
         public int MaxEnergy => Mathf.Max(0, maxEnergyPerTurn);
-
+        public int EnemyTurnIndex { get; private set; } = 0;
         private CardRuntime pendingTargetedCard;
 
         public static FightSceneController Instance { get; private set; }
@@ -144,6 +144,7 @@ namespace Game.Combat
 
         private IEnumerator EnemyTurnThenBackToPlayer()
         {
+            EnemyTurnIndex++;
             var enemyDb = EnemyAbilityDatabase.Load();
             foreach (var enemy in ctx.Enemies.Where(e => e && e.IsAlive))
             {
@@ -373,6 +374,13 @@ namespace Game.Combat
 
             SetEnergy(CurrentEnergy - cost);
             return true;
+        }
+        public void OnPlayerDamagedBy(IActor attacker, int damage, FightContext ctx)
+        {
+            if (damage <= 0 || attacker == null || player == null) return;
+
+            // Trigger reflect if it is armed for the player
+            ReflectNextTurnStatus.TryReflect(defender: player, attacker: attacker, incomingDamage: damage, ctx);
         }
 
     }

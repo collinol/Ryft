@@ -1,26 +1,32 @@
+using System;
 using UnityEngine;
-using Game.Core;
 
 namespace Game.Equipment
 {
+    [Serializable]
     public class EquipmentInstance
     {
-        public EquipmentDef Def { get; private set; }
-        public int Durability { get; private set; }
+        public EquipmentDef def;
+        public int currentDurability;
 
-        public EquipmentInstance(EquipmentDef def)
+        public EquipmentInstance(EquipmentDef d)
         {
-            Def = def;
-            Durability = def.maxDurability;
+            def = d;
+            currentDurability = d ? Mathf.Max(0, d.maxDurability) : 0;
         }
 
-        public bool IsBroken => Def.breaksWhenZero && Durability <= 0;
-
-        public Stats ActiveModifiers => IsBroken ? Stats.Zero : Def.modifiers;
+        public bool IsBroken => def && def.maxDurability > 0 && currentDurability <= 0;
 
         public void Damage(int amount)
         {
-            Durability = Mathf.Max(0, Durability - amount);
+            if (!def || def.maxDurability <= 0) return;
+            currentDurability = Mathf.Max(0, currentDurability - Mathf.Max(0, amount));
+        }
+
+        public void Repair(int amount)
+        {
+            if (!def || def.maxDurability <= 0) return;
+            currentDurability = Mathf.Min(def.maxDurability, currentDurability + Mathf.Max(0, amount));
         }
     }
 }

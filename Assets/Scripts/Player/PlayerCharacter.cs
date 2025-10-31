@@ -1,9 +1,9 @@
-// Assets/Scripts/Player/PlayerCharacter.cs
 using System;
 using UnityEngine;
-using Game.Core;        // IActor, Stats
+using Game.Core;
 using Game.UI;
 using Game.Ryfts;
+using Game.Equipment;
 
 namespace Game.Player
 {
@@ -15,7 +15,7 @@ namespace Game.Player
         public string DisplayName => displayName;
         public Stats BaseStats => baseStats;
         public event Action<Stats> OnTurnStatsChanged;
-
+        [SerializeField] private EquipmentManager equipment;
         /// <summary>
         /// Base + Ryft (permanent + temporary) — used for health clamping and for
         /// refreshing the per-turn spendable stat pool.
@@ -48,6 +48,12 @@ namespace Game.Player
                     s.engineering   += mgr.TempEngineering;
                 }
 
+                if (!equipment) equipment = GetComponent<EquipmentManager>();
+                if (equipment)
+                {
+                    var eq = equipment.GetEquipmentStatBonus();
+                    s = s + eq;
+                }
                 return s;
             }
         }
@@ -63,9 +69,9 @@ namespace Game.Player
 
         void Awake()
         {
-            baseStats = new Stats { maxHealth = 30, strength = 1, mana = 1, engineering = 1};
-            currentTurnStats = new Stats { maxHealth = 30,  strength = 1, mana = 1, engineering = 1};
-
+            baseStats = new Stats { maxHealth = 30, strength = 1, mana = 1, engineering = 100};
+            currentTurnStats = new Stats { maxHealth = 30,  strength = 1, mana = 1, engineering = 100};
+            if (!equipment) equipment = GetComponent<EquipmentManager>();
 
             Health = Mathf.Max(1, TotalStats.maxHealth);
             hpBar = HealthBarView.Attach(transform, new Vector3(0f, 1.5f, 0f));

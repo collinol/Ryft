@@ -12,12 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21dd28f43b7839347b227692fda9017b, type: 3}
   m_Name: Grenade
   m_EditorClassIdentifier: 
-  id: GrenadeCard
+  id: Grenade
   displayName: Grenade
   description: 
   icon: {fileID: 0}
-  targeting: 3
-  power: 100
+  targeting: 2
+  energyCost: 1
+  power: 5
   scaling: 1
-  runtimeTypeName: Game.Cards.GrenadeCard
+  runtimeTypeName: Game.Cards.Grenade
   rarity: 0

@@ -44,5 +44,11 @@ namespace Game.Combat
                 if (Enemies[i] == null) Enemies.RemoveAt(i);
         }
         public IEnumerable<IActor> AllAliveEnemies() => FightSceneController.Instance.AllAliveEnemies();
+
+        public void OnPlayerDamagedBy(IActor attacker, int damage)
+        {
+            var fsc = FightSceneController.Instance;
+            if (fsc != null) fsc.OnPlayerDamagedBy(attacker, damage, this);
+        }
     }
 }

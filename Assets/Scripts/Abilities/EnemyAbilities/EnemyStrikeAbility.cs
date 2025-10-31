@@ -16,6 +16,7 @@ namespace Game.Abilities.EnemyAbilities
 
             var dmg = Mathf.Max(1, Def.power);
             target.ApplyDamage(dmg);
+            ctx.OnPlayerDamagedBy(attacker: Owner, damage: dmg);
             ctx.Log($"{Owner.DisplayName} uses {Def.displayName} for {dmg} damage on {target.DisplayName}.");
 
             PutOnCooldown();
