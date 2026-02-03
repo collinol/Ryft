@@ -266,13 +266,30 @@ public class MapNode : MonoBehaviour
 
         if (type == MapNodeType.Rift)
         {
-            if (riftState == RiftState.Open)
-                SetRiftState(RiftState.Closed);   // visual feedback first
-            controller?.OnNodeChosen(this);
+            // DO NOT change rift state here - wait for fight outcome
+            // DO NOT call OnNodeChosen here - wait for fight outcome
+            // DO NOT mark visited here - wait for fight outcome
+
+            // Ensure MapSession exists
+            if (MapSession.I == null)
+            {
+                new GameObject("MapSession (auto)").AddComponent<MapSession>();
+            }
+
+            // Save map state before transitioning
+            var st = controller.BuildState();
+            MapSession.I.Saved = st;
+
+            // Store which rift node we're fighting so we can update it on return
+            MapSession.I.PortalFightLevel = controller.FindLevelOfNode(this);
+            MapSession.I.PortalFightIndex = controller.FindIndexInLevel(this);
+            MapSession.I.PortalFightRyftColor = ryftColor;  // Pass color to portal fight scene
+
+            SceneManager.LoadScene("PortalFight", LoadSceneMode.Single);
             return;
         }
 
-        if (type == MapNodeType.Enemy)
+        if (type == MapNodeType.Enemy || type == MapNodeType.Elite)
         {
             // mirror mouse-click path: choose node, save state, load scene
             controller?.OnNodeChosen(this);
@@ -284,9 +301,61 @@ public class MapNode : MonoBehaviour
 
             var st = controller.BuildState();
             MapSession.I.Saved = st;
+            MapSession.I.IsEliteFight = (type == MapNodeType.Elite);
 
             MarkVisited();
             SceneManager.LoadScene("FightScene", LoadSceneMode.Single);
+            return;
+        }
+
+        if (type == MapNodeType.Shop)
+        {
+            controller?.OnNodeChosen(this);
+
+            if (MapSession.I == null)
+            {
+                new GameObject("MapSession (auto)").AddComponent<MapSession>();
+            }
+
+            var st = controller.BuildState();
+            MapSession.I.Saved = st;
+
+            MarkVisited();
+            SceneManager.LoadScene("ShopScene", LoadSceneMode.Single);
+            return;
+        }
+
+        if (type == MapNodeType.Rest)
+        {
+            controller?.OnNodeChosen(this);
+
+            if (MapSession.I == null)
+            {
+                new GameObject("MapSession (auto)").AddComponent<MapSession>();
+            }
+
+            var st = controller.BuildState();
+            MapSession.I.Saved = st;
+
+            MarkVisited();
+            SceneManager.LoadScene("RestScene", LoadSceneMode.Single);
+            return;
+        }
+
+        if (type == MapNodeType.TimePortal)
+        {
+            controller?.OnNodeChosen(this);
+
+            if (MapSession.I == null)
+            {
+                new GameObject("MapSession (auto)").AddComponent<MapSession>();
+            }
+
+            var st = controller.BuildState();
+            MapSession.I.Saved = st;
+
+            MarkVisited();
+            SceneManager.LoadScene("TimePortalScene", LoadSceneMode.Single);
             return;
         }
 

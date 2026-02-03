@@ -6,6 +6,7 @@ using UnityEngine;
 using Game.Core;      // IActor
 using Game.Player;    // PlayerCharacter : IActor
 using Game.Enemies;   // EnemyBase : IActor
+using Game.RyftEntities; // RyftPortalEntity
 
 namespace Game.Combat
 {
@@ -14,6 +15,7 @@ namespace Game.Combat
     {
         public PlayerCharacter Player { get; }
         public List<EnemyBase> Enemies { get; }
+        public RyftPortalEntity RyftPortal { get; private set; }
 
         public IActor PlayerActor => Player;
         public IEnumerable<IActor> EnemyActors      => Enemies.Where(e => e).Cast<IActor>();
@@ -28,6 +30,31 @@ namespace Game.Combat
             _logger = logger ?? (msg => Debug.Log($"[Combat] {msg}"));
         }
 
+        public FightContext(PlayerCharacter player, List<EnemyBase> enemies, RyftPortalEntity portal, Action<string> logger = null)
+            : this(player, enemies, logger)
+        {
+            RyftPortal = portal;
+        }
+
+        /// <summary>
+        /// Sets the rift portal for this fight context.
+        /// </summary>
+        public void SetRyftPortal(RyftPortalEntity portal)
+        {
+            RyftPortal = portal;
+        }
+
+        /// <summary>
+        /// Gets the primary target for enemies in portal fight mode.
+        /// Returns the portal if it exists and is alive, otherwise falls back to player.
+        /// </summary>
+        public IActor GetEnemyPrimaryTarget()
+        {
+            if (RyftPortal != null && RyftPortal.IsAlive)
+                return RyftPortal;
+            return Player;
+        }
+
         public void Log(string msg) => _logger?.Invoke(msg);
 
         public IActor FirstAliveEnemy() => Enemies.FirstOrDefault(e => e && e.IsAlive);
@@ -36,6 +63,14 @@ namespace Game.Combat
         public void RegisterEnemy(EnemyBase e)
         {
             if (e != null && !Enemies.Contains(e)) Enemies.Add(e);
+        }
+
+        /// <summary>
+        /// Add a newly spawned enemy to the combat context.
+        /// </summary>
+        public void AddEnemy(EnemyBase e)
+        {
+            RegisterEnemy(e);
         }
 
         public void CleanupNulls()

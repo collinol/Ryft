@@ -10,7 +10,7 @@ namespace Game.Enemies
         {
 
             displayName = "Goblin";
-            baseStats.maxHealth = 500;
+            baseStats.maxHealth = 20;
             baseStats.strength = 2;
             base.Awake();
             abilityIds = new[] { "EnemyStrikeAbility" };

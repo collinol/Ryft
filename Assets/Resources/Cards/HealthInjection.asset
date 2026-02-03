@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: HealthInjection
   displayName: Health Injection
-  description: 
+  description: Restore 8 HP.
   icon: {fileID: 0}
   targeting: 2
   energyCost: 1

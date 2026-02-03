@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Shoot
   displayName: Shoot
-  description: 
+  description: Deal 4 damage to a single enemy.
   icon: {fileID: 0}
   targeting: 2
   energyCost: 1

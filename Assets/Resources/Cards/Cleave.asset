@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Cleave
   displayName: Cleave
-  description: 
+  description: Deal 4 damage to all enemies.
   icon: {fileID: 0}
   targeting: 2
   energyCost: 1

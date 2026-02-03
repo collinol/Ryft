@@ -115,7 +115,6 @@ namespace Game.UI.Inventory
             }
         }
 
-
         private void OnCellClicked(EquipmentCellUI cell)
         {
             var mgr = EquipmentManager.Instance;
@@ -144,6 +143,7 @@ namespace Game.UI.Inventory
                     // from inventory: remember the original index, then remove
                     _pendingFromIndex = mgr.IndexOf(item);
                     mgr.RemoveFromInventory(item);
+
                 }
 
                 cell.ClearItem();
@@ -156,10 +156,13 @@ namespace Game.UI.Inventory
             }
 
             // ---- PLACE ----
+            var targetIndex = cell.index;
             var placing = _pendingItem;
             var from    = _pendingFrom;
+
             string tgtGrid = grid;
             int    tgtIndex = index;
+
             Debug.Log($"[PLACE] target {tgtGrid}[{tgtIndex}] item={placing.def?.id}");
 
             if (IsCharacterCell(cell))
@@ -178,11 +181,12 @@ namespace Game.UI.Inventory
                 if (already != null) mgr.Unequip(targetSlot);
 
                 mgr.Equip(placing);
+
             }
             else
             {
                 // place into the exact inventory cell that was clicked
-                var targetIndex = cell.index;
+                // targetIndex already declared above at line 159
 
                 // if we picked it up from inventory earlier, the list shrank by 1;
                 // clicking a later slot means its index shifted left by one.
@@ -191,11 +195,8 @@ namespace Game.UI.Inventory
                 // remove from current position if it exists
                 mgr.RemoveFromInventory(placing);
 
-                // if the index is valid, insert there
-                mgr.InsertIntoInventoryAt(placing, targetIndex);
-                if (_pendingFromIndex >= 0 && _pendingFromIndex < targetIndex)
-                    targetIndex--;
-
+                // Add the item back at the target index
+                mgr.AddToInventoryAt(targetIndex, placing);
 
                 Debug.Log($"[PLACE] placed {placing.def.id} into INV[{targetIndex}]");
             }

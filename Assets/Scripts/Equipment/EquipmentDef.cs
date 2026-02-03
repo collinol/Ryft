@@ -11,6 +11,7 @@ namespace Game.Equipment
         public string displayName;
         [TextArea] public string description;
         public Sprite icon;
+        public EquipmentRarity rarity = EquipmentRarity.Common;
 
         [Header("Slot & Durability")]
         public EquipmentSlot slot = EquipmentSlot.None;

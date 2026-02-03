@@ -20,6 +20,7 @@ namespace Game.Enemies
         public Stats   TotalStats => baseStats;
         public int     Health     { get; private set; }
         public bool    IsAlive    => Health > 0;
+        public StatusEffectManager StatusEffects { get; private set; }
 
         private HealthBarView hpBar;
 
@@ -34,17 +35,46 @@ namespace Game.Enemies
             // If a subclass changes stats, do that BEFORE base.Awake()
             Health = Mathf.Max(1, baseStats.maxHealth);
 
-            // Create and snap the bar
-            hpBar = HealthBarView.Attach(transform, new Vector3(0f, 1.5f, 0f));
+            // Initialize status effects
+            StatusEffects = new StatusEffectManager(this);
+
+            // Create and snap the bar (positioned below the enemy sprite, sized to fit within sprite width)
+            hpBar = HealthBarView.Attach(transform, new Vector3(0f, -1.2f, 0f), new Vector2(0.5f, 0.08f));
             hpBar.Set(Health, TotalStats.maxHealth);
         }
 
         // IActor
         public void ApplyDamage(int amount)
         {
-            var mitigated = Mathf.Max(0, amount);
+            ApplyDamage(amount, null);
+        }
+
+        public void ApplyDamage(int amount, IActor attacker)
+        {
+            // Apply status effect modifiers
+            var (finalDamage, blocked, reflected) = StatusEffects.ApplyIncomingDamageModifiers(amount, attacker);
+
+            if (blocked)
+            {
+                Debug.Log($"[{DisplayName}] Attack blocked!");
+                return;
+            }
+
+            var mitigated = Mathf.Max(0, finalDamage);
+            bool wasAlive = IsAlive;
             Health = Mathf.Max(0, Health - mitigated);
             hpBar?.Set(Health, TotalStats.maxHealth);
+
+            // Track kill if this damage killed the enemy
+            if (wasAlive && !IsAlive)
+            {
+                var tracker = CombatEventTracker.Instance;
+                // We don't know who dealt the damage here, so we'll need to track it differently
+                // This will be handled at the card level
+
+                // Hide sprite and health bar when enemy dies
+                OnDeath();
+            }
         }
 
         public void Heal(int amount)
@@ -83,6 +113,27 @@ namespace Game.Enemies
                 return;
             }
 
+            // Check for Stun - cannot act
+            if (StatusEffects.HasEffect(StatusEffectType.Stun))
+            {
+                ctx.Log($"{DisplayName} is stunned and cannot act!");
+                Debug.Log($"[{DisplayName}] is stunned, skipping action");
+                return;
+            }
+
+            // Check for Slow - reduced actions (for now, skip every other turn when slowed)
+            if (StatusEffects.HasEffect(StatusEffectType.Slow))
+            {
+                var slowEffect = StatusEffects.GetEffect(StatusEffectType.Slow);
+                if (slowEffect != null && slowEffect.Value > 0)
+                {
+                    // Slow reduces action count - for now, we'll make them skip this turn
+                    ctx.Log($"{DisplayName} is slowed and moves sluggishly...");
+                    Debug.Log($"[{DisplayName}] is slowed, reduced effectiveness");
+                    // Still let them act, but we could reduce damage in the ability itself
+                }
+            }
+
             // Choose which ability to use this turn
             var id = PickEnemyAbilityId();
             if (string.IsNullOrEmpty(id))
@@ -99,8 +150,8 @@ namespace Game.Enemies
                 return;
             }
 
-            // Default target is the player; the runtime can ignore/use this as it wants
-            var target = ctx.PlayerActor;
+            // Target the rift portal if present, otherwise the player
+            var target = ctx.GetEnemyPrimaryTarget();
             rt.Execute(ctx, target);
         }
         protected virtual string PickEnemyAbilityId()
@@ -109,6 +160,31 @@ namespace Game.Enemies
             // Randomize if you want:
             // return abilityIds[UnityEngine.Random.Range(0, abilityIds.Length)];
             return abilityIds[0];
+        }
+
+        protected virtual void OnDeath()
+        {
+            Debug.Log($"[{DisplayName}] Died - hiding sprite and health bar");
+
+            // Hide sprite
+            var spriteRenderer = GetComponent<SpriteRenderer>();
+            if (spriteRenderer)
+            {
+                spriteRenderer.enabled = false;
+            }
+
+            // Hide health bar
+            if (hpBar)
+            {
+                hpBar.gameObject.SetActive(false);
+            }
+
+            // Notify FightSceneController to check if all enemies are dead
+            var fightController = FindObjectOfType<Game.Combat.FightSceneController>();
+            if (fightController)
+            {
+                fightController.CheckVictoryCondition();
+            }
         }
     }
 }

@@ -7,7 +7,6 @@ namespace Game.Cards
     public class Grenade : DamageAllCard
     {
         // Explicit: pays with engineering
-        protected override int GetEnergyCost() => 1;
         protected override int GetBasePower()  => 6;
         protected override int GetScaling()    => 1;
         protected override StatField ScalingStat => StatField.Engineering;
@@ -27,10 +26,10 @@ namespace Game.Cards
             int hitCount = 0;
             foreach (var enemy in victims)
             {
-                enemy.ApplyDamage(dmg);
+                DealDamage(enemy, dmg, ScalingStat);
                 hitCount++;
             }
-            attacker.ApplyDamage(2);
+            DealDamage(attacker, 2, ScalingStat);
 
             if (hitCount > 0)
                 ctx.Log($"{attacker.DisplayName} throws {Def.displayName}, dealing {dmg} to all enemies ({hitCount}).");

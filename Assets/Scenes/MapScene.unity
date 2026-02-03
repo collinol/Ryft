@@ -390,9 +390,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18a96c394683d1d4993242318ea4eda2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  characterMenuSceneName: CharacterMenuScene
-  toggleKey: 99
-  closeKey: 27
 --- !u!4 &728231378
 Transform:
   m_ObjectHideFlags: 0

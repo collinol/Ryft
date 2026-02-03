@@ -19,7 +19,7 @@ namespace Game.Cards
             int dmg  = Mathf.Max(1, GetBasePower() + stat * GetScaling());
             var mgr = RyftEffectManager.Ensure();
             dmg = mgr.ApplyOutgoingDamageModifiers(dmg, Def, Owner, target);
-            target.ApplyDamage(dmg);
+            DealDamage(target, dmg, ScalingStat);
             ctx.Log($"{Owner.DisplayName} uses {Def.displayName} for {dmg} damage on {target.DisplayName}.");
         }
         public override TargetingType Targeting => TargetingType.SingleEnemy;

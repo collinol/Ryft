@@ -183,6 +183,8 @@ MonoBehaviour:
   cols: 4
   cellPrefab: {fileID: 7217948817512742964, guid: 9e24789f40f5d5747a717c54f7fd7b9f, type: 3}
   cellBackground: {fileID: 21300000, guid: f1191f8d2b2b9784fa6ed9188da4a79e, type: 3}
+  cellSize: 96
+  spacing: 8
   isCharacterGrid: 0
   characterSlots: 
 --- !u!222 &280389908
@@ -711,6 +713,7 @@ MonoBehaviour:
   inventoryGrid: {fileID: 280389906}
   database: {fileID: 11400000, guid: ce0ef1e465d9db9418f8b8098ee5e546, type: 2}
   seedManagerFromDatabase: 0
+  itemPrefab: {fileID: 0}
 --- !u!1 &977969655
 GameObject:
   m_ObjectHideFlags: 0
@@ -853,6 +856,8 @@ MonoBehaviour:
   cols: 4
   cellPrefab: {fileID: 7217948817512742964, guid: 9e24789f40f5d5747a717c54f7fd7b9f, type: 3}
   cellBackground: {fileID: 21300000, guid: f1191f8d2b2b9784fa6ed9188da4a79e, type: 3}
+  cellSize: 96
+  spacing: 8
   isCharacterGrid: 1
   characterSlots: 010000000200000003000000040000000500000006000000000000000000000000000000000000000000000000000000
 --- !u!114 &995064892
@@ -1164,6 +1169,7 @@ GameObject:
   - component: {fileID: 1597992325}
   - component: {fileID: 1597992324}
   - component: {fileID: 1597992326}
+  - component: {fileID: 1597992327}
   m_Layer: 0
   m_Name: Bootstrap
   m_TagString: Untagged
@@ -1217,6 +1223,18 @@ MonoBehaviour:
   clearInventoryBeforeSeeding: 1
   inventory: []
   equipped: []
+--- !u!114 &1597992327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1597992323}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 03e9f2e3113971b4b9581c782ea83254, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1676585386
 GameObject:
   m_ObjectHideFlags: 0

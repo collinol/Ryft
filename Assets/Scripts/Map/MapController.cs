@@ -105,6 +105,10 @@ public class MapController : MonoBehaviour
         if (MapSession.I != null && MapSession.I.Saved != null)
         {
             RestoreState(MapSession.I.Saved);
+
+            // Check for pending portal fight outcome and resolve it
+            ResolvePortalFightOutcome();
+
             CenterCameraNow();
             BuildCurrentMarker();
             MoveCurrentMarkerToCurrent();
@@ -247,6 +251,10 @@ public class MapController : MonoBehaviour
 
     MapNodeType RandomNodeType()
     {
+        // TimePortal appears less frequently (1 in 10 chance)
+        if (UnityEngine.Random.value < 0.1f)
+            return MapNodeType.TimePortal;
+
         var pool = new[] { MapNodeType.Enemy, MapNodeType.Shop, MapNodeType.Rest, MapNodeType.Elite, MapNodeType.Rift };
         return pool[UnityEngine.Random.Range(0, pool.Length)];
     }
@@ -298,6 +306,12 @@ public class MapController : MonoBehaviour
     public void OnNodeChosen(MapNode node)
     {
         int levelIdx = FindLevelOf(node);
+
+        // Update current map level in session
+        if (MapSession.I != null)
+        {
+            MapSession.I.CurrentMapLevel = levelIdx;
+        }
 
         // Collect same-row open ryfts we’re about to explode
         var toMaybeExplode = new List<MapNode>();
@@ -391,6 +405,106 @@ public class MapController : MonoBehaviour
         mgr.DebugLogActiveEffects("[Ryft][Map->Mgr]");
     }
 
+    /// <summary>
+    /// Called after returning from PortalFight scene to resolve the fight outcome.
+    /// Sets the rift state to Closed (victory) or Exploded (defeat) and applies effects.
+    /// Player always progresses to the next row (win or lose).
+    /// </summary>
+    private void ResolvePortalFightOutcome()
+    {
+        if (MapSession.I == null) return;
+        if (!MapSession.I.PortalFightVictory.HasValue) return;  // No pending outcome
+
+        int level = MapSession.I.PortalFightLevel;
+        int index = MapSession.I.PortalFightIndex;
+
+        // Validate indices
+        if (level < 0 || level >= levels.Count)
+        {
+            Debug.LogWarning($"[MapController] Invalid portal fight level: {level}");
+            MapSession.I.ClearPortalFightData();
+            return;
+        }
+        if (index < 0 || index >= levels[level].Count)
+        {
+            Debug.LogWarning($"[MapController] Invalid portal fight index: {index} in level {level}");
+            MapSession.I.ClearPortalFightData();
+            return;
+        }
+
+        var node = levels[level][index];
+        if (node == null || node.type != MapNodeType.Rift)
+        {
+            Debug.LogWarning($"[MapController] Portal fight node is not a rift");
+            MapSession.I.ClearPortalFightData();
+            return;
+        }
+
+        bool victory = MapSession.I.PortalFightVictory.Value;
+
+        // Explode other open rifts in the same row (siblings)
+        var toMaybeExplode = new List<MapNode>();
+        foreach (var n in levels[level])
+        {
+            if (n != node && n.type == MapNodeType.Rift && n.riftState == RiftState.Open)
+            {
+                toMaybeExplode.Add(n);
+                n.SetReachableDefault(false); // This will cause them to explode
+            }
+        }
+
+        // Set the current node and mark as visited
+        currentNode = node;
+        node.MarkVisited();
+
+        if (victory)
+        {
+            // WIN: Portal survived - close the rift
+            node.SetRiftState(RiftState.Closed);
+            ResolveRyftOutcome(node, closed: true);
+            Debug.Log($"[MapController] Portal fight VICTORY - Rift closed at level {level}, index {index}");
+        }
+        else
+        {
+            // LOSE: Portal destroyed - explode the rift
+            node.SetRiftState(RiftState.Exploded);
+            ResolveRyftOutcome(node, closed: false);
+            Debug.Log($"[MapController] Portal fight DEFEAT - Rift exploded at level {level}, index {index}");
+        }
+
+        // Resolve negative effects for any siblings that exploded
+        foreach (var n in toMaybeExplode)
+        {
+            if (n.riftState == RiftState.Exploded)
+            {
+                ResolveRyftOutcome(n, closed: false);
+            }
+        }
+
+        // Clear the pending outcome data
+        MapSession.I.ClearPortalFightData();
+
+        // Apply reachability - this makes the next row's nodes clickable (children)
+        ApplyReachabilityForCurrent(includeChildren: true);
+
+        // Reveal upcoming rows
+        RevealFrom(currentNode, 3);
+
+        // Generate more map if needed
+        if ((levels.Count - 1 - level) < 3)
+        {
+            GenerateLevels(3);
+            ApplyReachabilityForCurrent(includeChildren: true);
+        }
+
+        // Update visuals
+        MoveCurrentMarkerToCurrent();
+        PanCameraTo(node.transform.position);
+
+        // Update keyboard navigation
+        FocusCurrentOrChildren();
+    }
+
 
 
     /// <summary>
@@ -446,6 +560,21 @@ public class MapController : MonoBehaviour
     {
         for (int l = 0; l < levels.Count; l++) if (levels[l].Contains(node)) return l;
         return 0;
+    }
+
+    /// <summary>
+    /// Public wrapper for FindLevelOf - used by MapNode to store portal fight location.
+    /// </summary>
+    public int FindLevelOfNode(MapNode node) => FindLevelOf(node);
+
+    /// <summary>
+    /// Find the index of a node within its level.
+    /// </summary>
+    public int FindIndexInLevel(MapNode node)
+    {
+        int level = FindLevelOf(node);
+        if (level < 0 || level >= levels.Count) return -1;
+        return levels[level].IndexOf(node);
     }
 
     // ───────────────────────── camera helpers ───────────────────────────────────
@@ -681,6 +810,13 @@ public class MapController : MonoBehaviour
     {
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
+        // Open Character Menu with 'C' key
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            OpenCharacterMenu();
+            return;
+        }
+
         // Keyboard arrows + Enter
         if (Input.GetKeyDown(KeyCode.UpArrow))    MoveFocusUpRow();
         if (Input.GetKeyDown(KeyCode.DownArrow))  MoveFocusDownRow();
@@ -689,6 +825,20 @@ public class MapController : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             ConfirmSelection();
+    }
+
+    void OpenCharacterMenu()
+    {
+        // Save the current map state before switching scenes
+        var session = MapSession.I;
+        if (session != null)
+        {
+            session.Saved = BuildState();
+            Debug.Log("[Map] Saved state before going to CharacterMenu");
+        }
+
+        // Switch to CharacterMenu scene and remember to return to MapScene
+        Game.Util.SceneRouter.GoToCharacterMenu("MapScene");
     }
 
     // ───────────────────────── debug helpers ────────────────────────────────────

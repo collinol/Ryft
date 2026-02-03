@@ -73,9 +73,12 @@ namespace Game.Equipment
         public void AddToInventoryAt(int index, EquipmentInstance inst)
         {
             if (inst == null) return;
-            inventory ??= new();
-            index = Mathf.Clamp(index, 0, inventory.Count);
-            inventory.Insert(index, inst);
+            if (inventory == null) inventory = new List<EquipmentInstance>();
+
+            while (inventory.Count <= index) inventory.Add(null);
+            inventory[index] = inst;
+
+            Debug.Log($"[EM] Insert {inst.def?.id} @ invIndex={index}");
         }
         public void AddToInventory(EquipmentInstance inst)
         {
@@ -113,6 +116,7 @@ namespace Game.Equipment
             }
 
             SetEquipped(slot, inst);
+            RebindEffects();
             Debug.Log($"[MGR] EQUIPPED {inst.def.id} -> slot {slot}");
         }
 
@@ -132,11 +136,75 @@ namespace Game.Equipment
             var sum = Stats.Zero;
             foreach (var kv in map)
             {
-                var d = kv.Value?.def;
-                if (!d) continue;
-                sum = sum + d.bonusStats;
+                var inst = kv.Value;
+                if (inst == null || inst.def == null) continue;
+
+                // Broken items provide no stat bonuses
+                if (inst.IsBroken)
+                {
+                    Debug.Log($"[EM] {inst.def.displayName} is broken - no stat bonus");
+                    continue;
+                }
+
+                sum = sum + inst.def.bonusStats;
             }
             return sum;
+        }
+
+        /// <summary>
+        /// Damage all equipped items by the specified amount.
+        /// Called when player takes damage.
+        /// </summary>
+        public void DamageAllEquipped(int amount)
+        {
+            if (map == null || amount <= 0) return;
+
+            foreach (var kv in map)
+            {
+                var inst = kv.Value;
+                if (inst == null || inst.def == null) continue;
+                if (inst.def.maxDurability <= 0) continue; // Skip unbreakable items
+
+                bool wasBroken = inst.IsBroken;
+                inst.Damage(amount);
+
+                if (!wasBroken && inst.IsBroken)
+                {
+                    Debug.Log($"[EM] {inst.def.displayName} has broken!");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get all equipped items that are broken.
+        /// </summary>
+        public List<EquipmentInstance> GetBrokenEquipment()
+        {
+            var broken = new List<EquipmentInstance>();
+            if (map == null) return broken;
+
+            foreach (var kv in map)
+            {
+                if (kv.Value != null && kv.Value.IsBroken)
+                {
+                    broken.Add(kv.Value);
+                }
+            }
+            return broken;
+        }
+
+        /// <summary>
+        /// Check if any equipped item is broken.
+        /// </summary>
+        public bool HasBrokenEquipment()
+        {
+            if (map == null) return false;
+            foreach (var kv in map)
+            {
+                if (kv.Value != null && kv.Value.IsBroken)
+                    return true;
+            }
+            return false;
         }
 
         // --- Combat notifications (call these from your fight controller) ---

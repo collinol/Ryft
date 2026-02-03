@@ -7,7 +7,6 @@ namespace Game.Cards
 {
     public class BattleTrance : CardRuntime
     {
-        protected override int GetEnergyCost() => 1;
         public override TargetingType Targeting => TargetingType.Self;
         protected override StatField ScalingStat => StatField.Strength;
         protected override int GetBasePower() => 3;

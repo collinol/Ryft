@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: CullTheWeak
   displayName: Cull The Weak
-  description: 
+  description: Deal 6 damage to a single enemy, dealing +50% damage if they're below 30% HP.
   icon: {fileID: 0}
   targeting: 2
   energyCost: 1

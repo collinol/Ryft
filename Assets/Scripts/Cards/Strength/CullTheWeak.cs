@@ -6,7 +6,6 @@ namespace Game.Cards
 {
     public class CullTheWeak : DamageSingleCard
     {
-        protected override int GetEnergyCost() => 1;
         protected override int GetBasePower()  => 6;
         protected override int GetScaling()    => 1;
         public override TargetingType Targeting => TargetingType.SingleEnemy;

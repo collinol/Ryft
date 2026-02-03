@@ -48,10 +48,17 @@ namespace Game.UI
             canvas = gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.worldCamera = Camera.main;
+            canvas.sortingLayerName = "Default";
+            canvas.sortingOrder = 100;  // Render above everything else
             transform.localScale = Vector3.one * uiScale;
 
             var scaler = gameObject.AddComponent<CanvasScaler>();
             scaler.dynamicPixelsPerUnit = 100f; // 100 px per world unit
+
+            // Ensure each health bar canvas can be clicked through
+            // (health bars shouldn't block clicks to enemies)
+            var canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            canvasGroup.blocksRaycasts = false;
 
             var white = GetWhiteSprite();
 

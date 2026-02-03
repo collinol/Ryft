@@ -5,7 +5,8 @@ public enum MapNodeType
     Shop,
     Rest,
     Elite,
-    Rift
+    Rift,
+    TimePortal
 }
 
 public enum RiftState { Open, Closed, Exploded }

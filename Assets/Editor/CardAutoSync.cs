@@ -13,6 +13,17 @@ public static class CardAutoSync
     private const string ResourcesCardsFolder = "Assets/Resources/Cards";
     private static readonly string[] DbCandidateNames = { "CardDatabase.asset", "Card Database.asset" };
 
+    [MenuItem("Tools/Cards/Open Card Database")]
+    public static void OpenDatabase()
+    {
+        var db = FindOrCreateDatabase();
+        if (db)
+        {
+            Selection.activeObject = db;
+            EditorGUIUtility.PingObject(db);
+        }
+    }
+
     [MenuItem("Tools/Cards/Sync Card Assets + Database")]
     public static void Sync()
     {

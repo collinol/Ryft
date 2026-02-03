@@ -4,6 +4,7 @@ using Game.Core;
 using Game.UI;
 using Game.Ryfts;
 using Game.Equipment;
+using Game.Combat;
 
 namespace Game.Player
 {
@@ -16,6 +17,8 @@ namespace Game.Player
         public Stats BaseStats => baseStats;
         public event Action<Stats> OnTurnStatsChanged;
         [SerializeField] private EquipmentManager equipment;
+
+        public StatusEffectManager StatusEffects { get; private set; }
         /// <summary>
         /// Base + Ryft (permanent + temporary) — used for health clamping and for
         /// refreshing the per-turn spendable stat pool.
@@ -48,11 +51,15 @@ namespace Game.Player
                     s.engineering   += mgr.TempEngineering;
                 }
 
+                // Try to get EquipmentManager from the same GameObject first, then use singleton
                 if (!equipment) equipment = GetComponent<EquipmentManager>();
+                if (!equipment) equipment = EquipmentManager.Instance;
+
                 if (equipment)
                 {
                     var eq = equipment.GetEquipmentStatBonus();
                     s = s + eq;
+                    Debug.Log($"[PlayerCharacter] Equipment bonus: HP+{eq.maxHealth}, STR+{eq.strength}, MANA+{eq.mana}, ENG+{eq.engineering}");
                 }
                 return s;
             }
@@ -71,10 +78,16 @@ namespace Game.Player
         {
             baseStats = new Stats { maxHealth = 30, strength = 1, mana = 1, engineering = 100};
             currentTurnStats = new Stats { maxHealth = 30,  strength = 1, mana = 1, engineering = 100};
+
+            // Initialize status effects
+            StatusEffects = new StatusEffectManager(this);
+
+            // Try to get EquipmentManager from the same GameObject first, then use singleton
             if (!equipment) equipment = GetComponent<EquipmentManager>();
+            if (!equipment) equipment = EquipmentManager.Instance;
 
             Health = Mathf.Max(1, TotalStats.maxHealth);
-            hpBar = HealthBarView.Attach(transform, new Vector3(0f, 1.5f, 0f));
+            hpBar = HealthBarView.Attach(transform, new Vector3(0f, -1.2f, 0f), new Vector2(0.5f, 0.08f));
             hpBar.Set(Health, TotalStats.maxHealth);
             RefreshTurnStats();
         }
@@ -85,13 +98,27 @@ namespace Game.Player
 
         public void Gain(Stats gain)
         {
-            var cap = TotalStats; // don’t exceed the per-turn max derived from total stats
+            Gain(gain, allowExceedCap: false);
+        }
+
+        /// <summary>
+        /// Gain stats for the current turn. If allowExceedCap is true, stats can go above TotalStats cap.
+        /// </summary>
+        public void Gain(Stats gain, bool allowExceedCap)
+        {
+            var cap = TotalStats; // don't exceed the per-turn max derived from total stats
             currentTurnStats = new Stats
             {
                 maxHealth = currentTurnStats.maxHealth, // not spendable
-                strength  = Mathf.Min(cap.strength, currentTurnStats.strength + Math.Max(0, gain.strength)),
-                mana        = Mathf.Min(cap.mana,        currentTurnStats.mana        + Math.Max(0, gain.mana)),
-                engineering = Mathf.Min(cap.engineering, currentTurnStats.engineering + Math.Max(0, gain.engineering)),
+                strength  = allowExceedCap
+                    ? currentTurnStats.strength + Math.Max(0, gain.strength)
+                    : Mathf.Min(cap.strength, currentTurnStats.strength + Math.Max(0, gain.strength)),
+                mana = allowExceedCap
+                    ? currentTurnStats.mana + Math.Max(0, gain.mana)
+                    : Mathf.Min(cap.mana, currentTurnStats.mana + Math.Max(0, gain.mana)),
+                engineering = allowExceedCap
+                    ? currentTurnStats.engineering + Math.Max(0, gain.engineering)
+                    : Mathf.Min(cap.engineering, currentTurnStats.engineering + Math.Max(0, gain.engineering)),
             };
             OnTurnStatsChanged?.Invoke(currentTurnStats);
         }
@@ -106,8 +133,44 @@ namespace Game.Player
 
         public void ApplyDamage(int amount)
         {
-            var mitigated = Mathf.Max(0, amount);
+            ApplyDamage(amount, null);
+        }
+
+        public void ApplyDamage(int amount, IActor attacker)
+        {
+            // Apply status effect modifiers
+            var (finalDamage, blocked, reflected) = StatusEffects.ApplyIncomingDamageModifiers(amount, attacker);
+
+            if (blocked)
+            {
+                Debug.Log($"[PlayerCharacter] Attack blocked!");
+                return;
+            }
+
+            var mitigated = Mathf.Max(0, finalDamage);
             Health = Mathf.Max(0, Health - mitigated);
+
+            // Damage equipped items when player takes damage
+            if (mitigated > 0 && equipment != null)
+            {
+                equipment.DamageAllEquipped(1);
+            }
+
+            // Check for death prevention
+            if (Health <= 0)
+            {
+                var deathPrevention = DeathPreventionSystem.Instance;
+                if (deathPrevention != null)
+                {
+                    int newHealth = deathPrevention.TryPreventDeath(this, Health);
+                    if (newHealth >= 0)
+                    {
+                        Health = newHealth;
+                        Debug.Log($"[PlayerCharacter] Death prevented! Health restored to {Health}");
+                    }
+                }
+            }
+
             hpBar?.Set(Health, TotalStats.maxHealth);
             RyftCombatEvents.RaiseDamageTaken(this, mitigated);
         }

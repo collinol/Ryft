@@ -8,9 +8,11 @@ using Game.Enemies;
 using Game.Cards;
 using Game.UI;
 using Game.Ryfts;
+using Game.RyftEntities;
 using System;
 using Game.Abilities;
 using Game.Abilities.Enemy;
+using Game.VFX;
 
 namespace Game.Combat
 {
@@ -20,6 +22,7 @@ namespace Game.Combat
         [Header("Scene Refs")]
         [SerializeField] private PlayerCharacter player;
         [SerializeField] private EnemyBase[] enemies;
+        private RyftPortalEntity ryftPortal;
 
         [Header("Databases")]
         [SerializeField] private CardDatabase cardDb;
@@ -53,6 +56,12 @@ namespace Game.Combat
 
         public static FightSceneController Instance { get; private set; }
         public event Action<int,int> OnEnergyChanged;
+        private CombatEventTracker combatTracker;
+        private DeathPreventionSystem deathPrevention;
+        private EndOfTurnEffects endOfTurnEffects;
+        private CardCooldownManager cooldownManager;
+        private GadgetManager gadgetManager;
+
         void Awake()
         {
             Instance = this;
@@ -64,15 +73,104 @@ namespace Game.Combat
             if (!cardDb) cardDb = CardDatabase.Load();
             if (!uiCanvas) uiCanvas = FindObjectOfType<Canvas>();
             if (!turnBanner && uiCanvas) turnBanner = TurnBannerUI.Ensure(uiCanvas);
+
+            // Initialize card tooltip
+            if (uiCanvas) Game.UI.CardTooltip.Ensure(uiCanvas);
+
+            // Initialize combat systems
+            combatTracker = CombatEventTracker.Instance;
+            if (!combatTracker)
+            {
+                var go = new GameObject("CombatEventTracker");
+                combatTracker = go.AddComponent<CombatEventTracker>();
+            }
+
+            deathPrevention = DeathPreventionSystem.Instance;
+            if (!deathPrevention)
+            {
+                var go = new GameObject("DeathPreventionSystem");
+                deathPrevention = go.AddComponent<DeathPreventionSystem>();
+            }
+
+            endOfTurnEffects = EndOfTurnEffects.Instance;
+            if (!endOfTurnEffects)
+            {
+                var go = new GameObject("EndOfTurnEffects");
+                endOfTurnEffects = go.AddComponent<EndOfTurnEffects>();
+            }
+
+            cooldownManager = CardCooldownManager.Instance;
+            if (!cooldownManager)
+            {
+                var go = new GameObject("CardCooldownManager");
+                cooldownManager = go.AddComponent<CardCooldownManager>();
+            }
+
+            gadgetManager = GadgetManager.Instance;
+            if (!gadgetManager)
+            {
+                var go = new GameObject("GadgetManager");
+                gadgetManager = go.AddComponent<GadgetManager>();
+            }
+
+            // Initialize VFX manager
+            var vfxManager = CardVFXManager.Instance;
+            if (!vfxManager)
+            {
+                var go = new GameObject("CardVFXManager");
+                go.AddComponent<CardVFXManager>();
+            }
         }
 
         void Start()
         {
             if (turnBanner) turnBanner.ShowInstant("Player Turn");
 
+            // Position player at y=3 to avoid overlap with card hand
+            if (player != null)
+            {
+                var pos = player.transform.position;
+                player.transform.position = new Vector3(pos.x, 3.0f, pos.z);
+                Debug.Log($"[FightSceneController] Set player position to y=3.0");
+            }
+
+            // ALWAYS re-find enemies in Start() to ensure RuntimeEnemySpawner has finished
+            enemies = FindObjectsOfType<EnemyBase>();
+            Debug.Log($"[FightSceneController] Found {enemies?.Length ?? 0} enemies in Start()");
+
+            if (enemies != null && enemies.Length > 0)
+            {
+                // Position all enemies at y=3 to avoid overlap with card hand
+                foreach (var e in enemies)
+                {
+                    if (e != null)
+                    {
+                        var pos = e.transform.position;
+                        e.transform.position = new Vector3(pos.x, 3.0f, pos.z);
+                        Debug.Log($"  - Found enemy: {e.name} HP:{e.Health}/{e.TotalStats.maxHealth} Alive:{e.IsAlive} at y=3.0");
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[FightSceneController] NO ENEMIES FOUND! Check if RuntimeEnemySpawner is in the scene.");
+            }
+
             var enemyList = (enemies != null) ? enemies.Where(e => e != null).ToList()
                                               : new List<EnemyBase>();
+
+            Debug.Log($"[FightSceneController] Creating FightContext with {enemyList.Count} enemies");
+
             ctx = new FightContext(player, enemyList, msg => Debug.Log(msg));
+
+            // Find and register the rift portal if this is a portal fight
+            ryftPortal = FindObjectOfType<RyftPortalEntity>();
+            if (ryftPortal != null)
+            {
+                ctx.SetRyftPortal(ryftPortal);
+                ryftPortal.OnPortalDestroyed += OnPortalDestroyed;
+                Debug.Log($"[FightSceneController] Found RyftPortal ({ryftPortal.RyftColor}) with {ryftPortal.Health} HP - enemies will target it");
+            }
 
             // Build deck
             drawPile.Clear();
@@ -99,6 +197,25 @@ namespace Game.Combat
 
         private void StartPlayerTurn()
         {
+            // Reset combat trackers
+            if (combatTracker) combatTracker.ResetTurnCounters();
+
+            // Tick status effects
+            if (player) player.StatusEffects?.TickAllEffects();
+            if (enemies != null)
+            {
+                foreach (var enemy in enemies.Where(e => e && e.IsAlive))
+                {
+                    enemy.StatusEffects?.TickAllEffects();
+                }
+            }
+
+            // Tick cooldowns
+            if (cooldownManager) cooldownManager.TickAllCooldowns();
+
+            // Tick gadgets
+            if (gadgetManager) gadgetManager.TickAllGadgets();
+
             SetEnergy(MaxEnergy);
             player.RefreshTurnStats();
 
@@ -135,8 +252,69 @@ namespace Game.Combat
             ctx?.Log($"You draw {n} card{(n==1?"":"s")}.");
         }
 
+        /// <summary>
+        /// Add a specific card to hand with optional cost override
+        /// </summary>
+        public void AddCardToHand(CardDef card, int energyCostOverride = -1)
+        {
+            if (card == null) return;
+
+            // Add to hand
+            hand.Add(card);
+
+            // TODO: If energyCostOverride is provided, need to track modified costs
+            // For now, this just adds the card - cost modification needs additional tracking
+
+            RefreshHandUI();
+            ctx?.Log($"You gained {card.displayName} to your hand!");
+        }
+
+        /// <summary>
+        /// Get a random card from the current deck by stat type
+        /// </summary>
+        public CardDef GetRandomCardByType(StatField type)
+        {
+            if (cardDb == null) return null;
+
+            var allCards = cardDb.BuildPlayerDeck();
+            var matchingCards = new List<CardDef>();
+
+            foreach (var card in allCards)
+            {
+                if (card == null) continue;
+
+                // Check the card's runtime type to determine its stat
+                var rt = EnsureRuntime(card.id);
+                if (rt != null)
+                {
+                    // Use reflection to get ScalingStat
+                    var scalingStatProp = rt.GetType().GetProperty("ScalingStat",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                    if (scalingStatProp != null)
+                    {
+                        var scalingStat = (StatField)scalingStatProp.GetValue(rt);
+                        if (scalingStat == type)
+                        {
+                            matchingCards.Add(card);
+                        }
+                    }
+                }
+            }
+
+            if (matchingCards.Count == 0) return null;
+
+            int randomIndex = UnityEngine.Random.Range(0, matchingCards.Count);
+            return matchingCards[randomIndex];
+        }
+
         public void EndPlayerTurnButton()
         {
+            Debug.Log("[FightSceneController] EndPlayerTurnButton called");
+
+            // Trigger end-of-turn effects
+            endOfTurnEffects?.TriggerPlayerTurnEnd();
+
             // DO NOT discard hand. Just go enemy turn.
             if (turnBanner) turnBanner.Show("Enemy Turn");
             StartCoroutine(EnemyTurnThenBackToPlayer());
@@ -144,15 +322,31 @@ namespace Game.Combat
 
         private IEnumerator EnemyTurnThenBackToPlayer()
         {
+            Debug.Log($"[FightSceneController] Starting enemy turn {EnemyTurnIndex + 1}");
+            Debug.Log($"[FightSceneController] ctx.Enemies count: {ctx?.Enemies?.Count ?? 0}");
+
             EnemyTurnIndex++;
             var enemyDb = EnemyAbilityDatabase.Load();
-            foreach (var enemy in ctx.Enemies.Where(e => e && e.IsAlive))
+
+            if (ctx?.Enemies == null)
             {
+                Debug.LogError("[FightSceneController] ctx.Enemies is NULL!");
+                yield break;
+            }
+
+            var aliveEnemies = ctx.Enemies.Where(e => e && e.IsAlive).ToList();
+            Debug.Log($"[FightSceneController] Found {aliveEnemies.Count} alive enemies");
+
+            foreach (var enemy in aliveEnemies)
+            {
+                Debug.Log($"[FightSceneController] Enemy {enemy.name} taking turn...");
                 yield return new WaitForSeconds(enemyActionDelay);
 
                 // --- Minimal default enemy action: deal flat damage to the player ---
-                enemy.PerformEnemyAction(ctx,enemyDb);
+                enemy.PerformEnemyAction(ctx, enemyDb);
             }
+
+            Debug.Log("[FightSceneController] Enemy turn complete, returning to player turn");
 
             // Back to player
             if (turnBanner) turnBanner.Show("Player Turn");
@@ -381,6 +575,160 @@ namespace Game.Combat
 
             // Trigger reflect if it is armed for the player
             ReflectNextTurnStatus.TryReflect(defender: player, attacker: attacker, incomingDamage: damage, ctx);
+        }
+
+        public void CheckVictoryCondition()
+        {
+            // Check if all enemies are dead
+            if (enemies == null || enemies.Length == 0)
+            {
+                Debug.Log("[FightSceneController] No enemies to check");
+                return;
+            }
+
+            bool allDead = true;
+            foreach (var enemy in enemies)
+            {
+                if (enemy != null && enemy.IsAlive)
+                {
+                    allDead = false;
+                    break;
+                }
+            }
+
+            if (allDead)
+            {
+                // Check if this is a portal fight
+                if (ryftPortal != null)
+                {
+                    // Portal fight victory - portal survived and all enemies dead
+                    if (ryftPortal.IsAlive)
+                    {
+                        Debug.Log("[FightSceneController] PORTAL FIGHT VICTORY - All enemies defeated, portal survived!");
+                        if (MapSession.I != null)
+                        {
+                            MapSession.I.PortalFightVictory = true;
+                        }
+                        StartCoroutine(ReturnToMapAfterDelay());
+                    }
+                    // If portal is dead, OnPortalDestroyed will handle it
+                }
+                else
+                {
+                    // Regular fight - grant gold and go to reward scene
+                    Debug.Log("[FightSceneController] All enemies defeated! Going to RewardScene...");
+                    GrantVictoryRewards();
+                    StartCoroutine(GoToRewardSceneAfterDelay());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Called when the rift portal is destroyed by enemies.
+        /// </summary>
+        private void OnPortalDestroyed()
+        {
+            Debug.Log("[FightSceneController] PORTAL FIGHT DEFEAT - Portal was destroyed!");
+
+            if (MapSession.I != null)
+            {
+                MapSession.I.PortalFightVictory = false;
+            }
+
+            StartCoroutine(ReturnToMapAfterDelay());
+        }
+
+        private System.Collections.IEnumerator ReturnToMapAfterDelay()
+        {
+            // Wait a moment so the player can see the outcome
+            yield return new WaitForSeconds(1.0f);
+
+            // Unsubscribe from portal events before leaving
+            if (ryftPortal != null)
+            {
+                ryftPortal.OnPortalDestroyed -= OnPortalDestroyed;
+            }
+
+            // Load MapScene; MapController will detect MapSession.I.Saved and resolve the outcome
+            UnityEngine.SceneManagement.SceneManager.LoadScene("MapScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+        }
+
+        private void GrantVictoryRewards()
+        {
+            if (MapSession.I == null) return;
+
+            // Calculate gold based on enemy count and elite status
+            int baseGold = 10;
+            int enemyCount = enemies?.Length ?? 1;
+            int goldReward = baseGold + (enemyCount * 5);
+
+            if (MapSession.I.IsEliteFight)
+            {
+                goldReward *= 2; // Elites give double gold
+
+                // Track elite defeat for time portal obligations
+                TrackEliteDefeat();
+            }
+
+            MapSession.I.AddGold(goldReward);
+            MapSession.I.PendingReward = true;
+
+            Debug.Log($"[FightSceneController] Granted {goldReward} gold. Total: {MapSession.I.Gold}");
+        }
+
+        private void TrackEliteDefeat()
+        {
+            if (enemies == null || enemies.Length == 0) return;
+
+            // Find the elite enemy that was defeated
+            foreach (var enemy in enemies)
+            {
+                if (enemy == null) continue;
+
+                string typeName = enemy.GetType().Name;
+
+                // Check if it's an elite type
+                if (typeName.Contains("Chieftain") || typeName.Contains("Knight") ||
+                    typeName.Contains("Golem") || typeName.Contains("Necromancer"))
+                {
+                    // Simplify the name for matching
+                    string eliteType = typeName.Replace("Enemy", "");
+                    MapSession.I.LastDefeatedEliteType = eliteType;
+
+                    // Notify time portal system
+                    if (MapSession.I.TimePortal != null)
+                    {
+                        int currentLevel = MapSession.I.CurrentMapLevel;
+                        MapSession.I.TimePortal.OnEliteDefeated(eliteType, currentLevel);
+                    }
+
+                    Debug.Log($"[FightSceneController] Tracked elite defeat: {eliteType}");
+                    break;
+                }
+            }
+        }
+
+        private System.Collections.IEnumerator GoToRewardSceneAfterDelay()
+        {
+            yield return new WaitForSeconds(1.0f);
+
+            // Unsubscribe from portal events before leaving
+            if (ryftPortal != null)
+            {
+                ryftPortal.OnPortalDestroyed -= OnPortalDestroyed;
+            }
+
+            // Go to reward scene
+            UnityEngine.SceneManagement.SceneManager.LoadScene("RewardScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+        }
+
+        void OnDestroy()
+        {
+            // Clean up portal subscription
+            if (ryftPortal != null)
+            {
+                ryftPortal.OnPortalDestroyed -= OnPortalDestroyed;
+            }
         }
 
     }

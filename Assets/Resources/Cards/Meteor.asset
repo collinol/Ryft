@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: Meteor
   displayName: Meteor
-  description: 
+  description: Deal 8 damage to all enemies.
   icon: {fileID: 0}
   targeting: 2
   energyCost: 1

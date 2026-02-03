@@ -5,7 +5,6 @@ namespace Game.Cards
 {
     public abstract class HealCard : CardRuntime
     {
-        protected override int GetEnergyCost() => 1;
 
         public override void Execute(FightContext ctx, IActor explicitTarget = null)
         {

@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bf7f6dc94f4753748867b9c58c2ffdc6, type: 3}
   m_Name: Equip_SpikedChest
   m_EditorClassIdentifier: 
-  id: 
+  id: Equip_SpikedChest
   displayName: 
   description: 
   icon: {fileID: 21300000, guid: f24be65464ebd244592ee4bca42d8885, type: 3}
   slot: 3
   maxDurability: 0
   bonusStats:
-    maxHealth: 0
-    strength: 0
-    mana: 0
-    engineering: 0
+    maxHealth: 10
+    strength: 10
+    mana: 10
+    engineering: 10
   runtimeEffectTypeName: Game.Equipment.ThornsOnHitEffect

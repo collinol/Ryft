@@ -24,41 +24,118 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 30e2dbd3f194a824a86401bf8ec95271, type: 2}
   - {fileID: 11400000, guid: 16ce53658cd88d540a0b9b098068987e, type: 2}
   - {fileID: 11400000, guid: 4711e26276cef7d40b783c663ae71fd0, type: 2}
+  - {fileID: 11400000, guid: c925e1eec5e210c46aee4f1b3339f019, type: 2}
+  - {fileID: 11400000, guid: 19c86efad7a6db54786b9e1e3a12563d, type: 2}
+  - {fileID: 11400000, guid: 545aded7f04a2d64abff43fec898c65d, type: 2}
+  - {fileID: 11400000, guid: e26f4c0d4cb801c468173d7739449905, type: 2}
+  - {fileID: 11400000, guid: 0575b5d0e57ae7f41b152f9c57348579, type: 2}
+  - {fileID: 11400000, guid: 69c6691c17849ce499e42b7d135adc0b, type: 2}
+  - {fileID: 11400000, guid: 0f6c682f190eb3240817f8c87ba1deaa, type: 2}
+  - {fileID: 11400000, guid: effb071267006de4d8ae91789e483539, type: 2}
+  - {fileID: 11400000, guid: ac43cdd34a3c9b7449bb5a8449e3a6af, type: 2}
+  - {fileID: 11400000, guid: 742e071861bc2f54b9392540a8bf8df2, type: 2}
+  - {fileID: 11400000, guid: b104b7bc152a7c24f83242303430ce83, type: 2}
+  - {fileID: 11400000, guid: a715a1e5032a2d244811c0685cd9521c, type: 2}
+  - {fileID: 11400000, guid: e363c373658a3504caced23bfec521a0, type: 2}
+  - {fileID: 11400000, guid: 4c9ac2c1aa3436043a624f9d7d097fcd, type: 2}
+  - {fileID: 11400000, guid: 8e156268de60f904197e05801553da04, type: 2}
+  - {fileID: 11400000, guid: cc7137d29592c414697388954b1916c9, type: 2}
+  - {fileID: 11400000, guid: f498445b475c784488b1d2940d5c99cf, type: 2}
+  - {fileID: 11400000, guid: 5411e442fe1e095479ea6a7dea09ce71, type: 2}
+  - {fileID: 11400000, guid: 51cd92755e97d834099b1f16c9acf771, type: 2}
+  - {fileID: 11400000, guid: d5072073f13995c4fa85b02754d4f8d7, type: 2}
+  - {fileID: 11400000, guid: 5850d9b92cfb69543b0431a33e4d4560, type: 2}
+  - {fileID: 11400000, guid: b9bedc95b6958ea41bcf3cadd5f2f1f0, type: 2}
+  - {fileID: 11400000, guid: 2beb6fc151e8179478856df266c5cfbb, type: 2}
+  - {fileID: 11400000, guid: 2b4043ac56411e249a14e849556d3b64, type: 2}
+  - {fileID: 11400000, guid: c36f4145f60248444a39635afe9d6b3d, type: 2}
+  - {fileID: 11400000, guid: 47a0ea8520ed9414a8f8928ab197dffe, type: 2}
+  - {fileID: 11400000, guid: a26833b264a204e44a9f83f909879ca5, type: 2}
+  - {fileID: 11400000, guid: fda9d79a2057d7949ab9f74fc7dc1216, type: 2}
+  - {fileID: 11400000, guid: decab5cd4c47c5a4c86a704859dade70, type: 2}
+  - {fileID: 11400000, guid: 9bb8e1d565f61424eaf0b7a714d51a72, type: 2}
+  - {fileID: 11400000, guid: 4b8e4473cbeaf0c4a97db1493bdcd84f, type: 2}
+  - {fileID: 11400000, guid: 3afcabed36cb6664b8ed67e7bb85cf6f, type: 2}
+  - {fileID: 11400000, guid: 0f94768d30ade0f4a83de2287a4d654d, type: 2}
+  - {fileID: 11400000, guid: 09abe663fef18cd4f92d627f22561194, type: 2}
+  - {fileID: 11400000, guid: 87f62243789b1fe49964c4c3a16c6b9e, type: 2}
+  - {fileID: 11400000, guid: b55cce81558a4c24abefc1c560cea906, type: 2}
+  - {fileID: 11400000, guid: 04a5bf43cc3f4cf458e938f5ac1b3b94, type: 2}
+  - {fileID: 11400000, guid: 61daf73e61531d541bb0ff8fec8c7dea, type: 2}
+  - {fileID: 11400000, guid: 3bc278453ccfaa74a83e45fefe2ae869, type: 2}
+  - {fileID: 11400000, guid: 1ca9a3d9633609a47889d450eec6cfce, type: 2}
+  - {fileID: 11400000, guid: 15043ab9f2c50e146ae58922bd58f86d, type: 2}
+  - {fileID: 11400000, guid: 5ae136133ba9a2745a26361a641e7e56, type: 2}
+  - {fileID: 11400000, guid: a97096ae946dca945a9e6227d6f9267a, type: 2}
+  - {fileID: 11400000, guid: 36079b7065f5b9442bbdd1f26e465b8d, type: 2}
+  - {fileID: 11400000, guid: 0a9b94f48ee0e16429d72a307e96d4ff, type: 2}
+  - {fileID: 11400000, guid: 16125c30733ea2547824e0bb6d30c3ce, type: 2}
+  - {fileID: 11400000, guid: 88ba5040524cc7643854ad6cb9277d49, type: 2}
+  - {fileID: 11400000, guid: 9d965af2f483fe04c98716747a67d599, type: 2}
+  - {fileID: 11400000, guid: 0ea597e2c60ad6c43a6a08a740bb14b3, type: 2}
+  - {fileID: 11400000, guid: 3da1fa4d4ebfc0847b92cda8ee733538, type: 2}
+  - {fileID: 11400000, guid: 7a679f8dd9b68ab44bb5fa8ae2af805a, type: 2}
+  - {fileID: 11400000, guid: 66a3137eacf7b224a9fbda16c207e3cd, type: 2}
+  - {fileID: 11400000, guid: c43c9afb24b5a7c4a86e3aa263a5b344, type: 2}
+  - {fileID: 11400000, guid: 7cee60cf7f7aaea4a87816a94751f714, type: 2}
+  - {fileID: 11400000, guid: 6f777e462256d8845b8621cdca1d62e3, type: 2}
+  - {fileID: 11400000, guid: 76cafe6e014051d4aba7ae58636d3861, type: 2}
+  - {fileID: 11400000, guid: ee0d17c48d9339a4ab40dabe588fc8a8, type: 2}
+  - {fileID: 11400000, guid: f2946431e60047f4f8e5eca85abcc729, type: 2}
+  - {fileID: 11400000, guid: 2405730d4e5ee4341bff03aab938dc69, type: 2}
+  - {fileID: 11400000, guid: eea968733dbbe4c44be82775f8462b9f, type: 2}
+  - {fileID: 11400000, guid: 0d364a74e500695458b5510514cbdb94, type: 2}
+  - {fileID: 11400000, guid: 1d449985f99da364ca2382371d2bdf9b, type: 2}
+  - {fileID: 11400000, guid: 8fbc6f73fbfb6f14199c5f62294c40c0, type: 2}
+  - {fileID: 11400000, guid: c933d6d03f6c16a40b5851c551c342a6, type: 2}
+  - {fileID: 11400000, guid: 0f07e9e17f119504d8aae996fe58b6a2, type: 2}
+  - {fileID: 11400000, guid: ffddf65d983495e4cbb2e964783e1ded, type: 2}
+  - {fileID: 11400000, guid: 0f7b373a76ad2774083fb210103d3834, type: 2}
+  - {fileID: 11400000, guid: 32b6d49317d05414ebd12fda087231e5, type: 2}
+  - {fileID: 11400000, guid: b0423797a462b704b8917d3f6de1e86d, type: 2}
+  - {fileID: 11400000, guid: 19184717827678c41bbc9eb673920c28, type: 2}
+  - {fileID: 11400000, guid: 17f2d3ec281bf9549ba06a9cda647d8f, type: 2}
+  - {fileID: 11400000, guid: 2537c3dd779d6d84ead417c9215e63d6, type: 2}
+  - {fileID: 11400000, guid: 12bf1d02c90d701479f15e4681f0e568, type: 2}
+  - {fileID: 11400000, guid: 15932da4f332c5340824d59b8d1a69e3, type: 2}
+  - {fileID: 11400000, guid: 584740527b3dbb946a9d96fecbaa4695, type: 2}
+  - {fileID: 11400000, guid: 6a6783bbf6fa5014e8c5f90b00a03c89, type: 2}
+  - {fileID: 11400000, guid: 777455b6239dffb4ba6c0f22f83869fb, type: 2}
   availability:
   - card: {fileID: 11400000, guid: 659a897125f6a564a9212840aa32200a, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
-    rewardEligible: 1
+    rewardEligible: 0
   - card: {fileID: 11400000, guid: 4063b96d40a33ac48b88b1d8eeeb905a, type: 2}
     available: 1
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 4ee1c35320e6b1640be20163e3b3256b, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 5a7995ba48ba5ac4481c9b8f11273b3f, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 8ada3994819691944a8872b13510ed13, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: fd534a6064e6d0a4cb252722943c832d, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 9aeef2a1b8a25f94c9f01d20b5c50b02, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 3fe39b300b03b524789ca7c65e7badb3, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 30e2dbd3f194a824a86401bf8ec95271, type: 2}
-    available: 1
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 16ce53658cd88d540a0b9b098068987e, type: 2}
@@ -66,7 +143,315 @@ MonoBehaviour:
     maxCopies: 99
     rewardEligible: 1
   - card: {fileID: 11400000, guid: 4711e26276cef7d40b783c663ae71fd0, type: 2}
-    available: 3
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: c925e1eec5e210c46aee4f1b3339f019, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 19c86efad7a6db54786b9e1e3a12563d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 545aded7f04a2d64abff43fec898c65d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: e26f4c0d4cb801c468173d7739449905, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0575b5d0e57ae7f41b152f9c57348579, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 69c6691c17849ce499e42b7d135adc0b, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0f6c682f190eb3240817f8c87ba1deaa, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: effb071267006de4d8ae91789e483539, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: ac43cdd34a3c9b7449bb5a8449e3a6af, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 742e071861bc2f54b9392540a8bf8df2, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: b104b7bc152a7c24f83242303430ce83, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: a715a1e5032a2d244811c0685cd9521c, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: e363c373658a3504caced23bfec521a0, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 4c9ac2c1aa3436043a624f9d7d097fcd, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 8e156268de60f904197e05801553da04, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: cc7137d29592c414697388954b1916c9, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: f498445b475c784488b1d2940d5c99cf, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 5411e442fe1e095479ea6a7dea09ce71, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 51cd92755e97d834099b1f16c9acf771, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: d5072073f13995c4fa85b02754d4f8d7, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 5850d9b92cfb69543b0431a33e4d4560, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: b9bedc95b6958ea41bcf3cadd5f2f1f0, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 2beb6fc151e8179478856df266c5cfbb, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 2b4043ac56411e249a14e849556d3b64, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: c36f4145f60248444a39635afe9d6b3d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 47a0ea8520ed9414a8f8928ab197dffe, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: a26833b264a204e44a9f83f909879ca5, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: fda9d79a2057d7949ab9f74fc7dc1216, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: decab5cd4c47c5a4c86a704859dade70, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 9bb8e1d565f61424eaf0b7a714d51a72, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 4b8e4473cbeaf0c4a97db1493bdcd84f, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 3afcabed36cb6664b8ed67e7bb85cf6f, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0f94768d30ade0f4a83de2287a4d654d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 09abe663fef18cd4f92d627f22561194, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 87f62243789b1fe49964c4c3a16c6b9e, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: b55cce81558a4c24abefc1c560cea906, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 04a5bf43cc3f4cf458e938f5ac1b3b94, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 61daf73e61531d541bb0ff8fec8c7dea, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 3bc278453ccfaa74a83e45fefe2ae869, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 1ca9a3d9633609a47889d450eec6cfce, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 15043ab9f2c50e146ae58922bd58f86d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 5ae136133ba9a2745a26361a641e7e56, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: a97096ae946dca945a9e6227d6f9267a, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 36079b7065f5b9442bbdd1f26e465b8d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0a9b94f48ee0e16429d72a307e96d4ff, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 16125c30733ea2547824e0bb6d30c3ce, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 88ba5040524cc7643854ad6cb9277d49, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 9d965af2f483fe04c98716747a67d599, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0ea597e2c60ad6c43a6a08a740bb14b3, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 3da1fa4d4ebfc0847b92cda8ee733538, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 7a679f8dd9b68ab44bb5fa8ae2af805a, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 66a3137eacf7b224a9fbda16c207e3cd, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: c43c9afb24b5a7c4a86e3aa263a5b344, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 7cee60cf7f7aaea4a87816a94751f714, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 6f777e462256d8845b8621cdca1d62e3, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 76cafe6e014051d4aba7ae58636d3861, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: ee0d17c48d9339a4ab40dabe588fc8a8, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: f2946431e60047f4f8e5eca85abcc729, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 2405730d4e5ee4341bff03aab938dc69, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: eea968733dbbe4c44be82775f8462b9f, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0d364a74e500695458b5510514cbdb94, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 1d449985f99da364ca2382371d2bdf9b, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 8fbc6f73fbfb6f14199c5f62294c40c0, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: c933d6d03f6c16a40b5851c551c342a6, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0f07e9e17f119504d8aae996fe58b6a2, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: ffddf65d983495e4cbb2e964783e1ded, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 0f7b373a76ad2774083fb210103d3834, type: 2}
+    available: 1
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 32b6d49317d05414ebd12fda087231e5, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: b0423797a462b704b8917d3f6de1e86d, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 19184717827678c41bbc9eb673920c28, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 17f2d3ec281bf9549ba06a9cda647d8f, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 2537c3dd779d6d84ead417c9215e63d6, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 12bf1d02c90d701479f15e4681f0e568, type: 2}
+    available: 1
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 15932da4f332c5340824d59b8d1a69e3, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 584740527b3dbb946a9d96fecbaa4695, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 6a6783bbf6fa5014e8c5f90b00a03c89, type: 2}
+    available: 0
+    maxCopies: 99
+    rewardEligible: 1
+  - card: {fileID: 11400000, guid: 777455b6239dffb4ba6c0f22f83869fb, type: 2}
+    available: 0
     maxCopies: 99
     rewardEligible: 1
   rewardWeights:
