@@ -6,7 +6,7 @@ using Game.RyftEntities;
 namespace Game.Combat
 {
     /// <summary>
-    /// Spawns the RyftPortalEntity and Goblin enemies for the PortalFight scene.
+    /// Spawns the RyftPortalEntity and enemies for the PortalFight scene.
     /// Enemies will target the portal instead of the player.
     /// Attach this to a GameObject in the PortalFight scene.
     /// </summary>
@@ -15,19 +15,19 @@ namespace Game.Combat
     {
         [Header("Portal Settings")]
         [SerializeField] private int portalHealth = 50;
-        [SerializeField] private Vector3 portalPosition = new Vector3(0f, 2.5f, 0f); // Centered, above cards
+        [SerializeField] private Vector3 portalPosition = new Vector3(0f, 3.5f, 0f);
 
         [Header("Enemy Spawn Settings")]
-        [SerializeField] private GameObject goblinPrefab;
         [SerializeField] private Transform leftSpawnPoint;
         [SerializeField] private Transform rightSpawnPoint;
 
-        [Header("Fallback Positions")]
-        [SerializeField] private Vector3 leftPosition = new Vector3(-3f, 3.0f, 0f);
-        [SerializeField] private Vector3 rightPosition = new Vector3(3f, 3.0f, 0f);
+        [Header("Fallback Positions (enemies on right side)")]
+        [SerializeField] private Vector3 leftPosition = new Vector3(4f, 3.0f, 0f);
+        [SerializeField] private Vector3 rightPosition = new Vector3(8f, 3.0f, 0f);
 
         [Header("Auto-Spawn")]
         [SerializeField] private bool autoSpawnOnAwake = true;
+        [SerializeField] private bool forcePositions = true;
 
         /// <summary>
         /// The spawned portal instance.
@@ -36,17 +36,25 @@ namespace Game.Combat
 
         void Awake()
         {
+            if (forcePositions)
+            {
+                portalPosition = new Vector3(0f, 3.5f, 0f);
+                leftPosition = new Vector3(4f, 3.0f, 0f);
+                rightPosition = new Vector3(8f, 3.0f, 0f);
+                Debug.Log($"[PortalFightSetup] Forced positions - Portal: {portalPosition}, Enemies: {leftPosition}, {rightPosition}");
+            }
+
             if (autoSpawnOnAwake)
             {
+                ClearAllEnemies();
                 SpawnPortal();
-                SpawnTwoGoblins();
+                SpawnTwoEnemies();
             }
         }
 
         [ContextMenu("Spawn Portal")]
         public void SpawnPortal()
         {
-            // Check if portal already exists
             var existingPortal = FindObjectOfType<RyftPortalEntity>();
             if (existingPortal != null)
             {
@@ -55,15 +63,13 @@ namespace Game.Combat
                 return;
             }
 
-            // Get the rift color from MapSession (set when clicking the rift on the map)
-            RyftColor portalColor = RyftColor.Blue; // Default
+            RyftColor portalColor = RyftColor.Blue;
             if (MapSession.I != null)
             {
                 portalColor = MapSession.I.PortalFightRyftColor;
                 Debug.Log($"[PortalFightSetup] Using rift color from MapSession: {portalColor}");
             }
 
-            // Try to load the RyftEntityDef asset for this color
             var entityDef = RyftEntityDef.Load(portalColor);
             if (entityDef != null)
             {
@@ -72,28 +78,20 @@ namespace Game.Combat
             }
             else
             {
-                // Fallback: create portal directly from component
                 SpawnedPortal = CreatePortalFromComponent(portalColor, portalPosition);
                 Debug.Log($"[PortalFightSetup] Spawned {portalColor} portal from component at {portalPosition} with {portalHealth} HP");
             }
         }
 
-        /// <summary>
-        /// Create a portal directly by adding the appropriate component.
-        /// Used as fallback when no RyftEntityDef asset is found.
-        /// </summary>
         private RyftPortalEntity CreatePortalFromComponent(RyftColor color, Vector3 position)
         {
             var go = new GameObject($"{color}RyftPortal");
             go.transform.position = position;
-            // Note: Scale will be set by RyftPortalEntity.NormalizeSpriteSize() in Start()
 
-            // Add SpriteRenderer
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sortingLayerName = "Default";
             sr.sortingOrder = 0;
 
-            // Add the correct Ryft component based on color
             RyftPortalEntity entity = color switch
             {
                 RyftColor.Orange => go.AddComponent<OrangeRyft>(),
@@ -107,73 +105,160 @@ namespace Game.Combat
             return entity;
         }
 
-        [ContextMenu("Spawn Two Goblins")]
-        public void SpawnTwoGoblins()
+        [ContextMenu("Spawn Two Enemies")]
+        public void SpawnTwoEnemies()
         {
-            // Check if goblins already exist in scene
-            var existingGoblins = FindObjectsOfType<GoblinEnemy>();
-            if (existingGoblins.Length >= 2)
+            var existing = FindObjectsOfType<EnemyBase>();
+            if (existing.Length >= 2)
             {
-                Debug.Log("[PortalFightSetup] Two goblins already exist in scene, skipping spawn");
+                Debug.Log("[PortalFightSetup] Two enemies already exist in scene, skipping spawn");
                 return;
             }
 
-            // Spawn first goblin (left)
             Vector3 pos1 = leftSpawnPoint != null ? leftSpawnPoint.position : leftPosition;
-            GameObject goblin1 = SpawnGoblin(pos1, "Goblin_1");
-
-            // Spawn second goblin (right)
             Vector3 pos2 = rightSpawnPoint != null ? rightSpawnPoint.position : rightPosition;
-            GameObject goblin2 = SpawnGoblin(pos2, "Goblin_2");
 
-            Debug.Log($"[PortalFightSetup] Spawned 2 goblins at {pos1} and {pos2}");
+            SpawnEnemyAtPosition(pos1, "Enemy_1");
+            SpawnEnemyAtPosition(pos2, "Enemy_2");
+
+            Debug.Log($"[PortalFightSetup] Spawned 2 enemies at {pos1} and {pos2}");
         }
 
-        private GameObject SpawnGoblin(Vector3 position, string name)
+        private void SpawnEnemyAtPosition(Vector3 position, string goName)
         {
-            GameObject goblin;
+            // Try RuntimeEnemySpawner.SpawnFromDef if Instance is ready
+            var spawner = RuntimeEnemySpawner.Instance;
+            var db = EnemyDatabase.Load();
 
-            if (goblinPrefab != null)
+            if (db != null)
             {
-                // Use prefab if assigned
-                goblin = Instantiate(goblinPrefab, position, Quaternion.identity);
-                goblin.name = name;
+                int level = MapSession.I != null ? MapSession.I.CurrentMapLevel : 0;
+                var def = db.GetRandom(EnemyTier.Regular, level);
+                if (def != null)
+                {
+                    if (spawner != null)
+                    {
+                        spawner.SpawnFromDef(def, position, goName);
+                    }
+                    else
+                    {
+                        // Spawner not ready yet — do the same thing SpawnFromDef does
+                        SpawnFromDefLocal(def, position, goName);
+                    }
+                    return;
+                }
+            }
+
+            // Fallback: bare goblin
+            Debug.LogWarning($"[PortalFightSetup] No database or def, spawning fallback goblin: {goName}");
+            var go = new GameObject(goName);
+            go.transform.position = position;
+            go.AddComponent<GoblinEnemy>();
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingLayerName = "Default";
+            sr.sortingOrder = 5;
+            sr.sprite = CreateProceduralEnemySprite(Color.green);
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 2f);
+            col.isTrigger = false;
+
+            go.AddComponent<EnemyClickTarget>();
+        }
+
+        /// <summary>
+        /// Local version of SpawnFromDef for when RuntimeEnemySpawner.Instance isn't ready yet.
+        /// </summary>
+        private EnemyBase SpawnFromDefLocal(EnemyDef def, Vector3 position, string goName)
+        {
+            GameObject go = new GameObject(goName ?? def.displayName);
+            go.SetActive(false);
+            go.transform.position = position;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingLayerName = "Default";
+            sr.sortingOrder = 5;
+            sr.sprite = def.sprite != null ? def.sprite : CreateProceduralEnemySprite(def.proceduralColor);
+
+            EnemyBase enemy;
+            if (!string.IsNullOrEmpty(def.runtimeTypeName))
+            {
+                System.Type customType = System.Type.GetType(def.runtimeTypeName);
+                if (customType != null && typeof(EnemyBase).IsAssignableFrom(customType))
+                    enemy = go.AddComponent(customType) as EnemyBase;
+                else
+                    enemy = go.AddComponent<GenericEnemy>();
             }
             else
             {
-                // Create from scratch if no prefab
-                goblin = new GameObject(name);
-                goblin.transform.position = position;
-
-                // Add GoblinEnemy component
-                var goblinEnemy = goblin.AddComponent<GoblinEnemy>();
-
-                // Add SpriteRenderer if needed
-                if (goblin.GetComponent<SpriteRenderer>() == null)
-                {
-                    var sr = goblin.AddComponent<SpriteRenderer>();
-                    sr.sortingLayerName = "Default";
-                    sr.sortingOrder = 1;
-                }
-
-                Debug.Log($"[PortalFightSetup] Created goblin from scratch: {name}");
+                enemy = go.AddComponent<GenericEnemy>();
             }
 
-            return goblin;
+            enemy.InitFromDef(def);
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 2f);
+            col.isTrigger = false;
+            go.AddComponent<EnemyClickTarget>();
+
+            go.SetActive(true);
+            Debug.Log($"[PortalFightSetup] SpawnFromDefLocal: {def.id} at {position}");
+            return enemy;
         }
 
-        [ContextMenu("Clear All Goblins")]
-        public void ClearAllGoblins()
+        private Sprite CreateProceduralEnemySprite(Color color)
         {
-            var goblins = FindObjectsOfType<GoblinEnemy>();
-            foreach (var goblin in goblins)
+            int size = 64;
+            Texture2D texture = new Texture2D(size, size);
+            texture.filterMode = FilterMode.Point;
+
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = Color.clear;
+
+            int centerX = size / 2;
+            int centerY = size / 2;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - centerX) / 20f;
+                    float dy = (y - centerY) / 28f;
+                    if (dx * dx + dy * dy < 1f)
+                        pixels[y * size + x] = color;
+
+                    float eyeY = centerY + 8;
+                    float leftEyeX = centerX - 8;
+                    float rightEyeX = centerX + 8;
+                    float dxL = (x - leftEyeX), dyL = (y - eyeY);
+                    float dxR = (x - rightEyeX), dyR = (y - eyeY);
+
+                    if (dxL * dxL + dyL * dyL < 16) pixels[y * size + x] = Color.white;
+                    if (dxR * dxR + dyR * dyR < 16) pixels[y * size + x] = Color.white;
+                    if (dxL * dxL + dyL * dyL < 4)  pixels[y * size + x] = Color.black;
+                    if (dxR * dxR + dyR * dyR < 4)  pixels[y * size + x] = Color.black;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
+        }
+
+        [ContextMenu("Clear All Enemies")]
+        public void ClearAllEnemies()
+        {
+            var enemies = FindObjectsOfType<EnemyBase>();
+            foreach (var enemy in enemies)
             {
                 if (Application.isPlaying)
-                    Destroy(goblin.gameObject);
+                    Destroy(enemy.gameObject);
                 else
-                    DestroyImmediate(goblin.gameObject);
+                    DestroyImmediate(enemy.gameObject);
             }
-            Debug.Log($"[PortalFightSetup] Cleared {goblins.Length} goblins");
+            Debug.Log($"[PortalFightSetup] Cleared {enemies.Length} enemies");
         }
     }
 }

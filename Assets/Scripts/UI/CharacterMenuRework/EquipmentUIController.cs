@@ -67,7 +67,11 @@ namespace Game.UI.Inventory
             {
                 EquipmentInstance inst = null;
                 if (cell.characterSlot != EquipmentSlot.None)
+                {
                     inst = mgr.GetEquipped(cell.characterSlot);
+                    // Ensure slot label exists for character cells
+                    cell.CreateSlotLabelIfNeeded(GetSlotDisplayName(cell.characterSlot));
+                }
 
                 Debug.Log($"[UI] CHAR cell[{cell.index}] slot={cell.characterSlot} -> {(inst != null ? inst.def.id : "NULL")}");
                 EnsureCellHasView(cell);
@@ -370,6 +374,27 @@ namespace Game.UI.Inventory
         public void RefreshFromManager()
         {
             RepopulateAll();
+        }
+
+        /// <summary>
+        /// Get a user-friendly display name for an equipment slot.
+        /// </summary>
+        private string GetSlotDisplayName(EquipmentSlot slot)
+        {
+            return slot switch
+            {
+                EquipmentSlot.Head => "Head",
+                EquipmentSlot.Shoulders => "Shoulders",
+                EquipmentSlot.Chest => "Chest",
+                EquipmentSlot.Hands => "Hands",
+                EquipmentSlot.Legs => "Legs",
+                EquipmentSlot.Feet => "Feet",
+                EquipmentSlot.Weapon => "Weapon",
+                EquipmentSlot.Offhand => "Offhand",
+                EquipmentSlot.Accessory1 => "Accessory",
+                EquipmentSlot.Accessory2 => "Accessory",
+                _ => ""
+            };
         }
     }
 

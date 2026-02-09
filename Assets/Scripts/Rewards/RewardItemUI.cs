@@ -77,11 +77,9 @@ namespace Game.Rewards
 
         private string FormatCardCost(CardDef card)
         {
-            var parts = new System.Collections.Generic.List<string>();
-            if (card.cost.strength > 0) parts.Add($"STR: {card.cost.strength}");
-            if (card.cost.mana > 0) parts.Add($"MANA: {card.cost.mana}");
-            if (card.cost.engineering > 0) parts.Add($"ENG: {card.cost.engineering}");
-            return parts.Count > 0 ? string.Join(" | ", parts) : "Free";
+            if (card.energyCost > 0)
+                return $"Energy: {card.energyCost}";
+            return "Free";
         }
 
         private string FormatEquipStats(EquipmentDef equip)

@@ -19,6 +19,7 @@ public class MapSession : MonoBehaviour
     public int CurrentMapLevel = 0;          // Current map depth for scaling
     public bool PendingReward = false;       // True if player should see reward scene
     public string LastDefeatedEliteType;     // Track which elite was last defeated
+    public bool ShouldAdvanceNode = false;   // True if player should move to next node after returning to map
 
     // Time Portal system
     public TimePortalState TimePortal;       // Tracks borrowed gear and obligations

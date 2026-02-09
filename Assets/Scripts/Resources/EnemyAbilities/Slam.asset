@@ -9,8 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5b17fb29a863b1d45a3625e4274801e6, type: 3}
-  m_Name: EquipmentDatabase
+  m_Script: {fileID: 11500000, guid: 8b7df05a7881ad840ab38bdafe4c099c, type: 3}
+  m_Name: Slam
   m_EditorClassIdentifier: 
-  items:
-  - {fileID: 11400000, guid: 9f490f204bf588a479ef0d47243069e0, type: 2}
+  id: SlamAbility
+  displayName: Slam
+  description: 
+  icon: {fileID: 0}
+  targeting: 2
+  baseCooldown: 1
+  power: 15
+  scaling: 1
+  runtimeTypeName: Game.Abilities.EnemyAbilities.SlamAbility

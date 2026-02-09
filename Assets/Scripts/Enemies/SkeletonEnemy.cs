@@ -9,11 +9,14 @@ namespace Game.Enemies
     {
         protected override void Awake()
         {
-            displayName = "Skeleton";
-            baseStats.maxHealth = 15;
-            baseStats.strength = 3;
+            if (sourceDef == null)
+            {
+                displayName = "Skeleton";
+                baseStats.maxHealth = 15;
+                baseStats.strength = 3;
+                abilityIds = new[] { "EnemyStrikeAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "EnemyStrikeAbility" };
         }
     }
 }

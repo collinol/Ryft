@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bf7f6dc94f4753748867b9c58c2ffdc6, type: 3}
   m_Name: Equip_IronGauntlets
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Equip_IronGauntlets
   displayName: Iron Gauntlets
   description: Heavy gauntlets that increase striking power.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 8475ef37b00450941a0dba8e52cbe0d5, type: 3}
   rarity: 0
+  level: 1
   slot: 4
   maxDurability: 45
   bonusStats:
@@ -24,4 +25,4 @@ MonoBehaviour:
     strength: 2
     mana: 0
     engineering: 0
-  runtimeEffectTypeName:
+  runtimeEffectTypeName: 

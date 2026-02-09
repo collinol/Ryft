@@ -69,7 +69,6 @@ namespace Game.UI
             csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            Debug.Log($"[AbilityBarUI] Configured {slots.Length} slots with width={slotWidth}, height={slotHeight}, spacing={spacing}");
         }
 
         void OnEnable()  { StartCoroutine(RefreshNextFrame()); }
@@ -82,13 +81,14 @@ namespace Game.UI
             var hand = ctrl?.CurrentHand;
             int count = hand?.Count ?? 0;
 
+
             for (int i = 0; i < slots.Length; i++)
             {
                 var btn = slots[i];
-                if (!btn) continue;
                 btn.gameObject.SetActive(true);
 
                 CardDef def = (hand != null && i < count) ? hand[i] : null;
+
                 btn.BindCard(def);
             }
         }

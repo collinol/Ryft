@@ -174,21 +174,68 @@ namespace Game.Rewards
                 var canvasGo = new GameObject("FallbackCanvas");
                 canvas = canvasGo.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvasGo.AddComponent<CanvasScaler>();
+                var scaler = canvasGo.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
                 canvasGo.AddComponent<GraphicRaycaster>();
             }
 
-            // Create container
+            // Background
+            var bgGo = new GameObject("Background");
+            bgGo.transform.SetParent(canvas.transform, false);
+            var bgImg = bgGo.AddComponent<Image>();
+            bgImg.color = new Color(0.1f, 0.1f, 0.15f);
+            var bgRt = bgGo.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.sizeDelta = Vector2.zero;
+
+            // Title
+            var titleGo = new GameObject("Title");
+            titleGo.transform.SetParent(canvas.transform, false);
+            var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+            titleText.text = isEliteReward ? "ELITE DEFEATED!\nChoose Equipment:" : "VICTORY!\nChoose a Card:";
+            titleText.fontSize = 42;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.color = isEliteReward ? new Color(1f, 0.8f, 0.2f) : new Color(0.5f, 1f, 0.5f);
+            var titleRt = titleGo.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.2f, 0.8f);
+            titleRt.anchorMax = new Vector2(0.8f, 0.95f);
+            titleRt.sizeDelta = Vector2.zero;
+            titleRt.offsetMin = Vector2.zero;
+            titleRt.offsetMax = Vector2.zero;
+
+            // Gold display
+            var goldGo = new GameObject("Gold");
+            goldGo.transform.SetParent(canvas.transform, false);
+            goldText = goldGo.AddComponent<TextMeshProUGUI>();
+            goldText.fontSize = 28;
+            goldText.alignment = TextAlignmentOptions.Right;
+            goldText.color = new Color(1f, 0.85f, 0.1f);
+            var goldRt = goldGo.GetComponent<RectTransform>();
+            goldRt.anchorMin = new Vector2(0.7f, 0.9f);
+            goldRt.anchorMax = new Vector2(0.95f, 0.98f);
+            goldRt.sizeDelta = Vector2.zero;
+            goldRt.offsetMin = Vector2.zero;
+            goldRt.offsetMax = Vector2.zero;
+            UpdateGoldDisplay();
+
+            // Create container for reward cards
             var container = new GameObject("RewardContainer");
             container.transform.SetParent(canvas.transform, false);
             var hlg = container.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 50;
+            hlg.spacing = 30;
             hlg.childAlignment = TextAnchor.MiddleCenter;
-            var rt = container.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            var containerRt = container.GetComponent<RectTransform>();
+            containerRt.anchorMin = new Vector2(0.1f, 0.25f);
+            containerRt.anchorMax = new Vector2(0.9f, 0.75f);
+            containerRt.sizeDelta = Vector2.zero;
+            containerRt.offsetMin = Vector2.zero;
+            containerRt.offsetMax = Vector2.zero;
 
             if (isEliteReward)
             {
@@ -209,11 +256,13 @@ namespace Game.Rewards
             var skipGo = new GameObject("SkipButton");
             skipGo.transform.SetParent(canvas.transform, false);
             var skipRt = skipGo.AddComponent<RectTransform>();
-            skipRt.anchorMin = new Vector2(0.5f, 0.1f);
-            skipRt.anchorMax = new Vector2(0.5f, 0.1f);
-            skipRt.sizeDelta = new Vector2(200, 50);
+            skipRt.anchorMin = new Vector2(0.4f, 0.08f);
+            skipRt.anchorMax = new Vector2(0.6f, 0.16f);
+            skipRt.sizeDelta = Vector2.zero;
+            skipRt.offsetMin = Vector2.zero;
+            skipRt.offsetMax = Vector2.zero;
             var skipImg = skipGo.AddComponent<Image>();
-            skipImg.color = new Color(0.3f, 0.3f, 0.3f);
+            skipImg.color = new Color(0.4f, 0.35f, 0.35f);
             var skipBtn = skipGo.AddComponent<Button>();
             skipBtn.onClick.AddListener(OnSkipClicked);
 
@@ -221,13 +270,15 @@ namespace Game.Rewards
             skipTextGo.transform.SetParent(skipGo.transform, false);
             var skipText = skipTextGo.AddComponent<TextMeshProUGUI>();
             skipText.text = "Skip Reward";
-            skipText.fontSize = 24;
+            skipText.fontSize = 28;
             skipText.alignment = TextAlignmentOptions.Center;
             skipText.color = Color.white;
             var skipTextRt = skipTextGo.GetComponent<RectTransform>();
             skipTextRt.anchorMin = Vector2.zero;
             skipTextRt.anchorMax = Vector2.one;
             skipTextRt.sizeDelta = Vector2.zero;
+            skipTextRt.offsetMin = Vector2.zero;
+            skipTextRt.offsetMax = Vector2.zero;
         }
 
         private void CreateFallbackCardButton(Transform parent, CardDef card, int index)
@@ -235,8 +286,16 @@ namespace Game.Rewards
             var go = new GameObject($"CardReward_{index}");
             go.transform.SetParent(parent, false);
 
+            // Set fixed size for the card
             var rt = go.AddComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(150, 200);
+            rt.sizeDelta = new Vector2(220, 320);
+
+            // Add LayoutElement to enforce size in layout group
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 220;
+            le.preferredHeight = 320;
+            le.minWidth = 220;
+            le.minHeight = 320;
 
             var img = go.AddComponent<Image>();
             img.color = GetRarityColor(card.rarity);
@@ -244,33 +303,66 @@ namespace Game.Rewards
             var btn = go.AddComponent<Button>();
             btn.onClick.AddListener(() => OnCardSelected(card));
 
+            // Rarity label at top
+            var rarityGo = new GameObject("Rarity");
+            rarityGo.transform.SetParent(go.transform, false);
+            var rarityText = rarityGo.AddComponent<TextMeshProUGUI>();
+            rarityText.text = card.rarity.ToString().ToUpper();
+            rarityText.fontSize = 16;
+            rarityText.alignment = TextAlignmentOptions.Center;
+            rarityText.fontStyle = TMPro.FontStyles.Bold;
+            rarityText.color = new Color(1f, 1f, 1f, 0.8f);
+            var rarityRt = rarityGo.GetComponent<RectTransform>();
+            rarityRt.anchorMin = new Vector2(0, 0.9f);
+            rarityRt.anchorMax = new Vector2(1, 1f);
+            rarityRt.offsetMin = new Vector2(5, 5);
+            rarityRt.offsetMax = new Vector2(-5, -5);
+
             // Card name
             var textGo = new GameObject("Name");
             textGo.transform.SetParent(go.transform, false);
             var text = textGo.AddComponent<TextMeshProUGUI>();
             text.text = card.displayName;
-            text.fontSize = 18;
+            text.fontSize = 22;
+            text.fontStyle = TMPro.FontStyles.Bold;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            text.enableWordWrapping = true;
             var textRt = textGo.GetComponent<RectTransform>();
-            textRt.anchorMin = new Vector2(0, 0.6f);
+            textRt.anchorMin = new Vector2(0, 0.7f);
             textRt.anchorMax = new Vector2(1, 0.9f);
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
+            textRt.offsetMin = new Vector2(10, 0);
+            textRt.offsetMax = new Vector2(-10, 0);
 
             // Description
             var descGo = new GameObject("Desc");
             descGo.transform.SetParent(go.transform, false);
             var desc = descGo.AddComponent<TextMeshProUGUI>();
             desc.text = card.description ?? "";
-            desc.fontSize = 12;
+            desc.fontSize = 16;
             desc.alignment = TextAlignmentOptions.Center;
-            desc.color = Color.white;
+            desc.color = new Color(0.95f, 0.95f, 0.95f);
+            desc.enableWordWrapping = true;
+            desc.overflowMode = TextOverflowModes.Ellipsis;
             var descRt = descGo.GetComponent<RectTransform>();
-            descRt.anchorMin = new Vector2(0, 0.1f);
-            descRt.anchorMax = new Vector2(1, 0.6f);
-            descRt.offsetMin = new Vector2(5, 0);
-            descRt.offsetMax = new Vector2(-5, 0);
+            descRt.anchorMin = new Vector2(0, 0.15f);
+            descRt.anchorMax = new Vector2(1, 0.7f);
+            descRt.offsetMin = new Vector2(10, 0);
+            descRt.offsetMax = new Vector2(-10, 0);
+
+            // Energy cost at bottom
+            var costGo = new GameObject("Cost");
+            costGo.transform.SetParent(go.transform, false);
+            var costText = costGo.AddComponent<TextMeshProUGUI>();
+            costText.text = card.energyCost > 0 ? $"Cost: {card.energyCost} Energy" : "Free";
+            costText.fontSize = 18;
+            costText.alignment = TextAlignmentOptions.Center;
+            costText.color = new Color(0.9f, 0.8f, 0.3f);
+            var costRt = costGo.GetComponent<RectTransform>();
+            costRt.anchorMin = new Vector2(0, 0.02f);
+            costRt.anchorMax = new Vector2(1, 0.12f);
+            costRt.offsetMin = new Vector2(5, 0);
+            costRt.offsetMax = new Vector2(-5, 0);
         }
 
         private void CreateFallbackEquipmentButton(Transform parent, EquipmentDef equip, int index)
@@ -278,8 +370,16 @@ namespace Game.Rewards
             var go = new GameObject($"EquipReward_{index}");
             go.transform.SetParent(parent, false);
 
+            // Set fixed size for the card
             var rt = go.AddComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(150, 200);
+            rt.sizeDelta = new Vector2(220, 320);
+
+            // Add LayoutElement to enforce size in layout group
+            var le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 220;
+            le.preferredHeight = 320;
+            le.minWidth = 220;
+            le.minHeight = 320;
 
             var img = go.AddComponent<Image>();
             img.color = GetEquipRarityColor(equip.rarity);
@@ -287,33 +387,81 @@ namespace Game.Rewards
             var btn = go.AddComponent<Button>();
             btn.onClick.AddListener(() => OnEquipmentSelected(equip));
 
+            // Rarity label at top
+            var rarityGo = new GameObject("Rarity");
+            rarityGo.transform.SetParent(go.transform, false);
+            var rarityText = rarityGo.AddComponent<TextMeshProUGUI>();
+            rarityText.text = equip.rarity.ToString().ToUpper();
+            rarityText.fontSize = 16;
+            rarityText.alignment = TextAlignmentOptions.Center;
+            rarityText.fontStyle = TMPro.FontStyles.Bold;
+            rarityText.color = new Color(1f, 1f, 1f, 0.8f);
+            var rarityRt = rarityGo.GetComponent<RectTransform>();
+            rarityRt.anchorMin = new Vector2(0, 0.9f);
+            rarityRt.anchorMax = new Vector2(1, 1f);
+            rarityRt.offsetMin = new Vector2(5, 5);
+            rarityRt.offsetMax = new Vector2(-5, -5);
+
+            // Slot type
+            var slotGo = new GameObject("Slot");
+            slotGo.transform.SetParent(go.transform, false);
+            var slotText = slotGo.AddComponent<TextMeshProUGUI>();
+            slotText.text = equip.slot.ToString();
+            slotText.fontSize = 14;
+            slotText.alignment = TextAlignmentOptions.Center;
+            slotText.color = new Color(0.8f, 0.8f, 0.8f);
+            var slotRt = slotGo.GetComponent<RectTransform>();
+            slotRt.anchorMin = new Vector2(0, 0.82f);
+            slotRt.anchorMax = new Vector2(1, 0.9f);
+            slotRt.offsetMin = new Vector2(5, 0);
+            slotRt.offsetMax = new Vector2(-5, 0);
+
             // Name
             var textGo = new GameObject("Name");
             textGo.transform.SetParent(go.transform, false);
             var text = textGo.AddComponent<TextMeshProUGUI>();
             text.text = equip.displayName;
-            text.fontSize = 18;
+            text.fontSize = 22;
+            text.fontStyle = TMPro.FontStyles.Bold;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            text.enableWordWrapping = true;
             var textRt = textGo.GetComponent<RectTransform>();
-            textRt.anchorMin = new Vector2(0, 0.6f);
-            textRt.anchorMax = new Vector2(1, 0.9f);
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
+            textRt.anchorMin = new Vector2(0, 0.65f);
+            textRt.anchorMax = new Vector2(1, 0.82f);
+            textRt.offsetMin = new Vector2(10, 0);
+            textRt.offsetMax = new Vector2(-10, 0);
 
             // Stats
             var descGo = new GameObject("Stats");
             descGo.transform.SetParent(go.transform, false);
             var desc = descGo.AddComponent<TextMeshProUGUI>();
             desc.text = FormatEquipStats(equip);
-            desc.fontSize = 12;
+            desc.fontSize = 18;
             desc.alignment = TextAlignmentOptions.Center;
-            desc.color = Color.white;
+            desc.color = new Color(0.5f, 1f, 0.5f);
+            desc.enableWordWrapping = true;
             var descRt = descGo.GetComponent<RectTransform>();
-            descRt.anchorMin = new Vector2(0, 0.1f);
-            descRt.anchorMax = new Vector2(1, 0.6f);
-            descRt.offsetMin = new Vector2(5, 0);
-            descRt.offsetMax = new Vector2(-5, 0);
+            descRt.anchorMin = new Vector2(0, 0.25f);
+            descRt.anchorMax = new Vector2(1, 0.65f);
+            descRt.offsetMin = new Vector2(10, 0);
+            descRt.offsetMax = new Vector2(-10, 0);
+
+            // Description
+            var descTextGo = new GameObject("Description");
+            descTextGo.transform.SetParent(go.transform, false);
+            var descText = descTextGo.AddComponent<TextMeshProUGUI>();
+            descText.text = equip.description ?? "";
+            descText.fontSize = 14;
+            descText.alignment = TextAlignmentOptions.Center;
+            descText.color = new Color(0.9f, 0.9f, 0.9f);
+            descText.enableWordWrapping = true;
+            descText.overflowMode = TextOverflowModes.Ellipsis;
+            var descTextRt = descTextGo.GetComponent<RectTransform>();
+            descTextRt.anchorMin = new Vector2(0, 0.05f);
+            descTextRt.anchorMax = new Vector2(1, 0.25f);
+            descTextRt.offsetMin = new Vector2(10, 0);
+            descTextRt.offsetMax = new Vector2(-10, 0);
         }
 
         private string FormatEquipStats(EquipmentDef equip)
@@ -399,6 +547,8 @@ namespace Game.Rewards
             {
                 MapSession.I.PendingReward = false;
                 MapSession.I.IsEliteFight = false;
+                // Note: Don't auto-advance. Player returns to the node they fought at
+                // and manually chooses where to go next.
             }
 
             SceneManager.LoadScene("MapScene");

@@ -65,6 +65,15 @@ namespace Game.Combat
         void Awake()
         {
             Instance = this;
+
+            // Ensure RuntimeEnemySpawner exists — it handles all enemy spawning
+            if (!FindObjectOfType<RuntimeEnemySpawner>())
+            {
+                var spawnerGo = new GameObject("RuntimeEnemySpawner");
+                spawnerGo.AddComponent<RuntimeEnemySpawner>();
+                Debug.Log("[FightSceneController] Created RuntimeEnemySpawner (was missing from scene)");
+            }
+
             if (!handUI) handUI = FindObjectOfType<Game.UI.AbilityBarUI>(true);
             if (!player)  player  = FindObjectOfType<PlayerCharacter>();
             if (enemies == null || enemies.Length == 0)
@@ -178,8 +187,22 @@ namespace Game.Combat
             hand.Clear();
             if (cardDb != null)
             {
-                drawPile.AddRange(cardDb.BuildPlayerDeck());
-                Shuffle(drawPile);
+                var playerDeck = cardDb.BuildPlayerDeck();
+                Debug.Log($"[FightSceneController] CardDatabase loaded. BuildPlayerDeck returned {playerDeck?.Count ?? 0} cards");
+                if (playerDeck != null && playerDeck.Count > 0)
+                {
+                    drawPile.AddRange(playerDeck);
+                    Shuffle(drawPile);
+                    Debug.Log($"[FightSceneController] Draw pile has {drawPile.Count} cards after shuffle");
+                }
+                else
+                {
+                    Debug.LogWarning("[FightSceneController] WARNING: Player deck is EMPTY! Check CardDatabase availability list.");
+                }
+            }
+            else
+            {
+                Debug.LogError("[FightSceneController] CardDatabase is NULL! Cards cannot be loaded.");
             }
 
             // Pre-bind runtimes for all unique cards (optional)
@@ -528,6 +551,16 @@ namespace Game.Combat
         private void RefreshHandUI()
         {
             if (!handUI) handUI = FindObjectOfType<Game.UI.AbilityBarUI>(true);
+
+            if (handUI == null)
+            {
+                Debug.LogWarning("[FightSceneController] RefreshHandUI: AbilityBarUI not found in scene!");
+            }
+            else
+            {
+                Debug.Log($"[FightSceneController] RefreshHandUI: Hand has {hand.Count} cards, calling Refresh()");
+            }
+
             handUI?.Refresh();
         }
         private int EffectiveMaxHandSize()
@@ -680,22 +713,16 @@ namespace Game.Combat
         {
             if (enemies == null || enemies.Length == 0) return;
 
-            // Find the elite enemy that was defeated
             foreach (var enemy in enemies)
             {
                 if (enemy == null) continue;
 
-                string typeName = enemy.GetType().Name;
-
-                // Check if it's an elite type
-                if (typeName.Contains("Chieftain") || typeName.Contains("Knight") ||
-                    typeName.Contains("Golem") || typeName.Contains("Necromancer"))
+                // Prefer SourceDef-based detection
+                if (enemy.SourceDef != null && enemy.SourceDef.tier == Game.Enemies.EnemyTier.Elite)
                 {
-                    // Simplify the name for matching
-                    string eliteType = typeName.Replace("Enemy", "");
+                    string eliteType = enemy.SourceDef.id;
                     MapSession.I.LastDefeatedEliteType = eliteType;
 
-                    // Notify time portal system
                     if (MapSession.I.TimePortal != null)
                     {
                         int currentLevel = MapSession.I.CurrentMapLevel;
@@ -703,6 +730,24 @@ namespace Game.Combat
                     }
 
                     Debug.Log($"[FightSceneController] Tracked elite defeat: {eliteType}");
+                    break;
+                }
+
+                // Fallback: class-name matching for enemies without a def
+                string typeName = enemy.GetType().Name;
+                if (typeName.Contains("Chieftain") || typeName.Contains("Knight") ||
+                    typeName.Contains("Golem") || typeName.Contains("Necromancer"))
+                {
+                    string fallbackType = typeName.Replace("Enemy", "");
+                    MapSession.I.LastDefeatedEliteType = fallbackType;
+
+                    if (MapSession.I.TimePortal != null)
+                    {
+                        int currentLevel = MapSession.I.CurrentMapLevel;
+                        MapSession.I.TimePortal.OnEliteDefeated(fallbackType, currentLevel);
+                    }
+
+                    Debug.Log($"[FightSceneController] Tracked elite defeat (fallback): {fallbackType}");
                     break;
                 }
             }

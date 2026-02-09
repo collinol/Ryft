@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20f524f5ccfb36f49a14b91ceca5f3f0, type: 3}
+  m_Name: Enemy_Goblin
+  m_EditorClassIdentifier: 
+  id: Enemy_Goblin
+  displayName: Goblin
+  description: 
+  sprite: {fileID: 21300000, guid: 30519533ccc458244a3cae81431ffb2a, type: 3}
+  tier: 0
+  minLevel: 0
+  baseStats:
+    maxHealth: 20
+    strength: 2
+    mana: 0
+    engineering: 0
+  abilityIds:
+  - EnemyStrikeAbility
+  runtimeTypeName: 
+  minions: []
+  proceduralColor: {r: 0, g: 1, b: 0, a: 1}

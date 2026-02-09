@@ -11,11 +11,14 @@ namespace Game.Enemies.Elite
 
         protected override void Awake()
         {
-            displayName = "Dark Knight";
-            baseStats.maxHealth = 100;
-            baseStats.strength = 5;
+            if (sourceDef == null)
+            {
+                displayName = "Dark Knight";
+                baseStats.maxHealth = 100;
+                baseStats.strength = 5;
+                abilityIds = new[] { "ShieldBashAbility", "DarkSlashAbility", "FortifyAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "ShieldBashAbility", "DarkSlashAbility", "FortifyAbility" };
         }
 
         protected override string PickEnemyAbilityId()

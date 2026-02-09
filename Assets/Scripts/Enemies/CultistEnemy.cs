@@ -9,11 +9,14 @@ namespace Game.Enemies
     {
         protected override void Awake()
         {
-            displayName = "Cultist";
-            baseStats.maxHealth = 20;
-            baseStats.strength = 2;
+            if (sourceDef == null)
+            {
+                displayName = "Cultist";
+                baseStats.maxHealth = 20;
+                baseStats.strength = 2;
+                abilityIds = new[] { "CurseAbility", "DarkRitualAbility", "EnemyStrikeAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "CurseAbility", "DarkRitualAbility", "EnemyStrikeAbility" };
         }
 
         protected override string PickEnemyAbilityId()

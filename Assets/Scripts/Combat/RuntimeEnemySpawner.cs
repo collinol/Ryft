@@ -1,44 +1,18 @@
 using UnityEngine;
 using Game.Enemies;
-using Game.Enemies.Elite;
 using Game.UI;
-using System.Collections.Generic;
 using System;
 
 namespace Game.Combat
 {
     /// <summary>
-    /// Spawns enemies at runtime with proper sprites, health bars, and components
-    /// Can spawn random numbers of enemies for procedural encounters
+    /// Spawns enemies at runtime with proper sprites, health bars, and components.
+    /// Uses EnemyDatabase to pick random enemies by tier and level.
     /// </summary>
     [DefaultExecutionOrder(-200)] // Run before FightSceneController
     public class RuntimeEnemySpawner : MonoBehaviour
     {
         public static RuntimeEnemySpawner Instance { get; private set; }
-
-        [Header("Enemy Configuration")]
-        [SerializeField] private GameObject enemyPrefab; // Optional: use a prefab
-        [SerializeField] private Sprite goblinSprite;    // Assign in Inspector or use Resources
-        [SerializeField] private string spriteResourcePath = "Sprites/Goblin"; // Path in Resources folder
-
-        // Enemy type to class mapping
-        private static readonly Dictionary<string, Type> EnemyTypes = new()
-        {
-            // Regular enemies
-            { "Goblin", typeof(GoblinEnemy) },
-            { "Skeleton", typeof(SkeletonEnemy) },
-            { "Slime", typeof(SlimeEnemy) },
-            { "Bandit", typeof(BanditEnemy) },
-            { "Cultist", typeof(CultistEnemy) },
-            // Elite enemies
-            { "OrcChieftain", typeof(OrcChieftainEnemy) },
-            { "DarkKnight", typeof(DarkKnightEnemy) },
-            { "Golem", typeof(GolemEnemy) },
-            { "Necromancer", typeof(NecromancerEnemy) },
-        };
-
-        private static readonly string[] RegularEnemyTypes = { "Goblin", "Skeleton", "Slime", "Bandit", "Cultist" };
-        private static readonly string[] EliteEnemyTypes = { "OrcChieftain", "DarkKnight", "Golem", "Necromancer" };
 
         [Header("Spawn Settings")]
         [SerializeField] private int numberOfEnemies = 2;
@@ -47,23 +21,31 @@ namespace Game.Combat
         [SerializeField] private int maxEnemies = 4;
 
         [Header("Positioning")]
-        [SerializeField] private float baseY = 3.0f;  // Set to 3.0 to prevent health bars from overlapping card hand
-        [SerializeField] private float spacingX = 4.0f;  // Set to 4.0 to prevent health bar overlap between enemies
+        [SerializeField] private float spacingX = 4.0f;
         [SerializeField] private bool centerEnemies = true;
 
-        [Header("Health Bar")]
-        [SerializeField] private GameObject healthBarPrefab;
-        [SerializeField] private float healthBarOffsetY = -1.2f;  // Note: Health bars now created by EnemyBase.Awake()
+        private EnemyDatabase enemyDb;
+
+        private const float FORCED_Y = 3.0f;
 
         void Awake()
         {
             Instance = this;
 
-            // Force correct Y position to avoid overlap with card hand UI
-            baseY = 3.0f;
-            // Force wider spacing to prevent health bar overlap
             spacingX = 4.0f;
-            Debug.Log("[RuntimeEnemySpawner] Awake() called - forcing baseY=3.0, spacingX=4.0, spawning enemies...");
+            Debug.Log("[RuntimeEnemySpawner] Awake() called - forcing baseY=3.0, spacingX=4.0");
+
+            enemyDb = EnemyDatabase.Load();
+            if (enemyDb == null)
+                Debug.LogWarning("[RuntimeEnemySpawner] EnemyDatabase not found — spawning will use fallback behaviour.");
+
+            // Check if PortalFightSceneSetup exists - if so, let it handle enemy spawning
+            var portalSetup = FindObjectOfType<PortalFightSceneSetup>();
+            if (portalSetup != null)
+            {
+                Debug.Log("[RuntimeEnemySpawner] PortalFightSceneSetup detected - skipping enemy spawn (portal fight handles its own enemies)");
+                return;
+            }
 
             // Check if this is an elite fight
             bool isElite = MapSession.I != null && MapSession.I.IsEliteFight;
@@ -77,256 +59,216 @@ namespace Game.Combat
             }
         }
 
+        // ─────────────────── Core spawn method ───────────────────
+
+        /// <summary>
+        /// Spawn a single enemy from an EnemyDef at the given position.
+        /// </summary>
+        public EnemyBase SpawnFromDef(EnemyDef def, Vector3 position, string goName = null)
+        {
+            if (def == null)
+            {
+                Debug.LogError("[RuntimeEnemySpawner] SpawnFromDef called with null def");
+                return null;
+            }
+
+            position.y = FORCED_Y;
+
+            // Create GO inactive so we can set up everything before Awake fires
+            GameObject go = new GameObject(goName ?? def.displayName);
+            go.SetActive(false);
+            go.transform.position = position;
+
+            // SpriteRenderer
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingLayerName = "Default";
+            sr.sortingOrder = 5;
+            sr.sprite = def.sprite != null ? def.sprite : CreateProceduralEnemySprite(def.proceduralColor);
+
+            // Enemy component — custom type or GenericEnemy
+            EnemyBase enemy;
+            if (!string.IsNullOrEmpty(def.runtimeTypeName))
+            {
+                Type customType = Type.GetType(def.runtimeTypeName);
+                if (customType != null && typeof(EnemyBase).IsAssignableFrom(customType))
+                {
+                    enemy = go.AddComponent(customType) as EnemyBase;
+                }
+                else
+                {
+                    Debug.LogWarning($"[RuntimeEnemySpawner] Type '{def.runtimeTypeName}' not found or invalid, using GenericEnemy");
+                    enemy = go.AddComponent<GenericEnemy>();
+                }
+            }
+            else
+            {
+                enemy = go.AddComponent<GenericEnemy>();
+            }
+
+            // Push def data before Awake
+            enemy.InitFromDef(def);
+
+            // Collider + click target
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 2f);
+            col.isTrigger = false;
+            go.AddComponent<EnemyClickTarget>();
+
+            // Activate — Awake fires now with correct stats
+            go.SetActive(true);
+
+            Debug.Log($"[RuntimeEnemySpawner] SpawnFromDef: {def.id} ({def.displayName}) at {position}");
+            return enemy;
+        }
+
+        // ─────────────────── Regular encounter ───────────────────
+
         [ContextMenu("Spawn Enemies")]
         public void SpawnEnemies()
         {
             Debug.Log("[RuntimeEnemySpawner] SpawnEnemies() called");
-
-            // Clear any existing enemies first
             ClearExistingEnemies();
 
-            // Determine how many to spawn
             int count = numberOfEnemies;
             if (randomizeCount)
             {
-                count = Random.Range(minEnemies, maxEnemies + 1);
+                count = UnityEngine.Random.Range(minEnemies, maxEnemies + 1);
                 Debug.Log($"[RuntimeEnemySpawner] Random count: {count} enemies");
             }
 
-            Debug.Log($"[RuntimeEnemySpawner] Spawning {count} enemies at baseY={baseY}");
+            Debug.Log($"[RuntimeEnemySpawner] Spawning {count} enemies");
 
-            // Calculate positions
             Vector3[] positions = CalculatePositions(count);
+            int level = MapSession.I != null ? MapSession.I.CurrentMapLevel : 0;
 
-            // Spawn each enemy
             for (int i = 0; i < count; i++)
             {
-                SpawnEnemy(positions[i], $"Goblin_{i + 1}");
+                EnemyDef def = enemyDb != null ? enemyDb.GetRandom(EnemyTier.Regular, level) : null;
+
+                if (def != null)
+                {
+                    SpawnFromDef(def, positions[i], $"{def.displayName}_{i + 1}");
+                }
+                else
+                {
+                    // Fallback: create a goblin the old way
+                    FallbackSpawnGoblin(positions[i], $"Goblin_{i + 1}");
+                }
             }
 
             Debug.Log($"[RuntimeEnemySpawner] Finished spawning {count} enemies");
-
-            // Verify they were created
             var allEnemies = FindObjectsOfType<EnemyBase>();
             Debug.Log($"[RuntimeEnemySpawner] Verification: Found {allEnemies.Length} total EnemyBase components in scene");
         }
+
+        // ─────────────────── Elite encounter ───────────────────
+
+        /// <summary>
+        /// Spawn an elite encounter — one elite enemy with optional minions from its def.
+        /// </summary>
+        public void SpawnEliteEncounter()
+        {
+            Debug.Log("[RuntimeEnemySpawner] Spawning elite encounter");
+            ClearExistingEnemies();
+
+            int level = MapSession.I != null ? MapSession.I.CurrentMapLevel : 0;
+            EnemyDef eliteDef = enemyDb != null ? enemyDb.GetRandom(EnemyTier.Elite, level) : null;
+
+            if (eliteDef == null)
+            {
+                Debug.LogWarning("[RuntimeEnemySpawner] No elite def found in database, spawning fallback goblin");
+                FallbackSpawnGoblin(new Vector3(0f, FORCED_Y, 0f), "FallbackElite");
+                return;
+            }
+
+            // Spawn the elite in center
+            Vector3 elitePos = new Vector3(0f, FORCED_Y, 0f);
+            SpawnFromDef(eliteDef, elitePos, eliteDef.displayName);
+
+            // Spawn minions based on def
+            if (eliteDef.minions != null)
+            {
+                int minionIndex = 0;
+                foreach (var entry in eliteDef.minions)
+                {
+                    if (entry.minionDef == null) continue;
+                    if (UnityEngine.Random.value > entry.spawnChance) continue;
+
+                    for (int i = 0; i < entry.count; i++)
+                    {
+                        float xOffset = (minionIndex % 2 == 0 ? -1 : 1) * spacingX * ((minionIndex / 2) + 1);
+                        Vector3 minionPos = new Vector3(xOffset, FORCED_Y, 0f);
+                        SpawnFromDef(entry.minionDef, minionPos, $"{entry.minionDef.displayName}_{minionIndex + 1}");
+                        minionIndex++;
+                    }
+                }
+            }
+
+            Debug.Log("[RuntimeEnemySpawner] Elite encounter spawned");
+        }
+
+        // ─────────────────── Backward-compat string overload ───────────────────
+
+        /// <summary>
+        /// Spawn an enemy by id/name string. Used by SummonAbility etc.
+        /// </summary>
+        public EnemyBase SpawnEnemy(string typeName, Vector3 position, string goName = null)
+        {
+            // Try database lookup first
+            if (enemyDb != null)
+            {
+                // Try exact id match, then try with "Enemy_" prefix
+                EnemyDef def = enemyDb.Get(typeName)
+                            ?? enemyDb.Get($"Enemy_{typeName}");
+                if (def != null)
+                    return SpawnFromDef(def, position, goName ?? typeName);
+            }
+
+            // Fallback: create old-style goblin with the given name
+            Debug.LogWarning($"[RuntimeEnemySpawner] No def found for '{typeName}', spawning fallback");
+            return FallbackSpawnGoblin(position, goName ?? typeName);
+        }
+
+        // ─────────────────── Positioning ───────────────────
 
         private Vector3[] CalculatePositions(int count)
         {
             Vector3[] positions = new Vector3[count];
 
-            // FORCE Y position to 3.0 to avoid card hand overlap
-            const float FORCED_Y = 3.0f;
-
             if (count == 1)
             {
-                // Single enemy in center
                 positions[0] = new Vector3(0f, FORCED_Y, 0f);
             }
             else if (centerEnemies)
             {
-                // Center the group
                 float totalWidth = (count - 1) * spacingX;
                 float startX = -totalWidth / 2f;
-
                 for (int i = 0; i < count; i++)
-                {
                     positions[i] = new Vector3(startX + (i * spacingX), FORCED_Y, 0f);
-                }
             }
             else
             {
-                // Start from left
                 for (int i = 0; i < count; i++)
-                {
                     positions[i] = new Vector3((i * spacingX) - spacingX, FORCED_Y, 0f);
-                }
             }
 
             return positions;
         }
 
-        private void SpawnEnemy(Vector3 position, string name)
-        {
-            // FORCE Y position to 3.0 (override any serialized baseY value)
-            position.y = 3.0f;
-
-            GameObject enemy;
-
-            if (enemyPrefab != null)
-            {
-                // Use prefab if assigned
-                enemy = Instantiate(enemyPrefab, position, Quaternion.identity);
-                enemy.name = name;
-                Debug.Log($"[RuntimeEnemySpawner] Spawned from prefab: {name} at {position}");
-            }
-            else
-            {
-                // Create from scratch
-                enemy = CreateEnemyFromScratch(position, name);
-            }
-
-            // Ensure it has a GoblinEnemy component
-            if (enemy.GetComponent<GoblinEnemy>() == null)
-            {
-                enemy.AddComponent<GoblinEnemy>();
-            }
-
-            // Add EnemyClickTarget for clicking/targeting
-            if (enemy.GetComponent<Game.Enemies.EnemyClickTarget>() == null)
-            {
-                enemy.AddComponent<Game.Enemies.EnemyClickTarget>();
-                Debug.Log($"[RuntimeEnemySpawner] Added EnemyClickTarget to {enemy.name}");
-            }
-
-            // Note: Health bar is created automatically by EnemyBase.Awake()
-            // No need to create it here to avoid duplication
-        }
-
-        private GameObject CreateEnemyFromScratch(Vector3 position, string name)
-        {
-            GameObject enemy = new GameObject(name);
-            enemy.transform.position = position;
-
-            // Add GoblinEnemy component (this will set up base stats)
-            var goblinEnemy = enemy.AddComponent<GoblinEnemy>();
-
-            // Add SpriteRenderer
-            var sr = enemy.AddComponent<SpriteRenderer>();
-            sr.sortingLayerName = "Default";
-            sr.sortingOrder = 5;  // Enemies at 5, Player at 10, so enemies behind player
-
-            // Try to load sprite
-            Sprite sprite = LoadGoblinSprite();
-            if (sprite != null)
-            {
-                sr.sprite = sprite;
-                Debug.Log($"[RuntimeEnemySpawner] Loaded sprite for {name}");
-            }
-            else
-            {
-                Debug.LogWarning($"[RuntimeEnemySpawner] No sprite found for {name} - enemy will be invisible!");
-            }
-
-            // Add Collider for clicking
-            var collider = enemy.AddComponent<BoxCollider2D>();
-            collider.size = new Vector2(1.5f, 2f);  // Larger collider for easier clicking
-            collider.isTrigger = false;  // Not a trigger, needs to be clickable
-
-            Debug.Log($"[RuntimeEnemySpawner] Created from scratch: {name} at {position}");
-
-            return enemy;
-        }
-
-        private Sprite LoadGoblinSprite()
-        {
-            // Priority 1: Inspector-assigned sprite
-            if (goblinSprite != null)
-            {
-                return goblinSprite;
-            }
-
-            // Priority 2: Load from Resources
-            if (!string.IsNullOrEmpty(spriteResourcePath))
-            {
-                Sprite sprite = Resources.Load<Sprite>(spriteResourcePath);
-                if (sprite != null)
-                {
-                    Debug.Log($"[RuntimeEnemySpawner] Loaded sprite from Resources: {spriteResourcePath}");
-                    return sprite;
-                }
-            }
-
-            // Priority 3: Find existing goblin in scene and copy its sprite
-            var existingGoblin = FindObjectOfType<GoblinEnemy>();
-            if (existingGoblin != null)
-            {
-                var sr = existingGoblin.GetComponent<SpriteRenderer>();
-                if (sr != null && sr.sprite != null)
-                {
-                    Debug.Log($"[RuntimeEnemySpawner] Copied sprite from existing goblin");
-                    return sr.sprite;
-                }
-            }
-
-            Debug.LogWarning("[RuntimeEnemySpawner] Could not load goblin sprite from any source!");
-            return null;
-        }
-
-        private void CreateHealthBar(GameObject enemy)
-        {
-            GameObject healthBar;
-
-            if (healthBarPrefab != null)
-            {
-                // Use prefab if assigned
-                healthBar = Instantiate(healthBarPrefab, enemy.transform);
-                healthBar.transform.localPosition = new Vector3(0, healthBarOffsetY, 0);
-            }
-            else
-            {
-                // Create simple health bar from scratch
-                healthBar = CreateSimpleHealthBar(enemy);
-            }
-
-            healthBar.name = "HealthBar";
-
-            // Try to link it to the enemy
-            var enemyBase = enemy.GetComponent<EnemyBase>();
-            if (enemyBase != null)
-            {
-                // Use reflection to set the hpBar field if it exists
-                var hpBarField = typeof(EnemyBase).GetField("hpBar",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                if (hpBarField != null)
-                {
-                    var healthBarView = healthBar.GetComponent<HealthBarView>();
-                    if (healthBarView != null)
-                    {
-                        hpBarField.SetValue(enemyBase, healthBarView);
-                        Debug.Log($"[RuntimeEnemySpawner] Linked health bar to {enemy.name}");
-                    }
-                }
-            }
-        }
-
-        private GameObject CreateSimpleHealthBar(GameObject parent)
-        {
-            // Use HealthBarView instead of creating from scratch
-            var enemyBase = parent.GetComponent<EnemyBase>();
-            if (enemyBase != null)
-            {
-                // Use the proper HealthBarView.Attach method
-                var healthBarView = Game.UI.HealthBarView.Attach(
-                    parent.transform,
-                    new Vector3(0, healthBarOffsetY, 0),
-                    new Vector2(1.2f, 0.15f)
-                );
-
-                Debug.Log($"[RuntimeEnemySpawner] Created HealthBarView for {parent.name}");
-                return healthBarView.gameObject;
-            }
-
-            Debug.LogWarning($"[RuntimeEnemySpawner] No EnemyBase found on {parent.name}, skipping health bar");
-            return null;
-        }
+        // ─────────────────── Clear ───────────────────
 
         private void ClearExistingEnemies()
         {
-            var enemies = FindObjectsOfType<GoblinEnemy>();
+            var enemies = FindObjectsOfType<EnemyBase>();
             foreach (var enemy in enemies)
             {
-                if (Application.isPlaying)
-                    Destroy(enemy.gameObject);
-                else
-                    DestroyImmediate(enemy.gameObject);
+                // DestroyImmediate so pre-placed scene enemies are gone
+                // before we spawn replacements in the same frame
+                DestroyImmediate(enemy.gameObject);
             }
 
             if (enemies.Length > 0)
-            {
                 Debug.Log($"[RuntimeEnemySpawner] Cleared {enemies.Length} existing enemies");
-            }
         }
 
         [ContextMenu("Clear All Enemies")]
@@ -335,7 +277,8 @@ namespace Game.Combat
             ClearExistingEnemies();
         }
 
-        // Public API for dynamic spawning
+        // ─────────────────── Public helpers ───────────────────
+
         public void SpawnSpecificCount(int count)
         {
             numberOfEnemies = count;
@@ -349,123 +292,81 @@ namespace Game.Combat
             SpawnEnemies();
         }
 
-        /// <summary>
-        /// Spawn an elite encounter - one elite enemy with optional minions.
-        /// </summary>
-        public void SpawnEliteEncounter()
+        // ─────────────────── Fallback (no database) ───────────────────
+
+        private EnemyBase FallbackSpawnGoblin(Vector3 position, string goName)
         {
-            Debug.Log("[RuntimeEnemySpawner] Spawning elite encounter");
-            ClearExistingEnemies();
+            position.y = FORCED_Y;
 
-            // Pick a random elite type
-            string eliteType = EliteEnemyTypes[UnityEngine.Random.Range(0, EliteEnemyTypes.Length)];
-            Debug.Log($"[RuntimeEnemySpawner] Selected elite: {eliteType}");
+            GameObject go = new GameObject(goName);
+            go.transform.position = position;
 
-            // Calculate positions - elite in center
-            Vector3 elitePos = new Vector3(0f, 3.0f, 0f);
-            SpawnEnemy(eliteType, elitePos, eliteType);
+            var enemy = go.AddComponent<GoblinEnemy>();
 
-            // Some elites spawn with minions
-            if (eliteType == "Necromancer")
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingLayerName = "Default";
+            sr.sortingOrder = 5;
+            sr.sprite = CreateProceduralEnemySprite(Color.green);
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(1.5f, 2f);
+            col.isTrigger = false;
+
+            go.AddComponent<EnemyClickTarget>();
+
+            Debug.Log($"[RuntimeEnemySpawner] Fallback spawned Goblin: {goName} at {position}");
+            return enemy;
+        }
+
+        // ─────────────────── Procedural sprite ───────────────────
+
+        private Sprite CreateProceduralEnemySprite(Color color)
+        {
+            int size = 64;
+            Texture2D texture = new Texture2D(size, size);
+            texture.filterMode = FilterMode.Point;
+
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = Color.clear;
+
+            int centerX = size / 2;
+            int centerY = size / 2;
+
+            for (int y = 0; y < size; y++)
             {
-                // Necromancer starts with 2 skeletons
-                SpawnEnemy("Skeleton", new Vector3(-4f, 3.0f, 0f), "Skeleton_1");
-                SpawnEnemy("Skeleton", new Vector3(4f, 3.0f, 0f), "Skeleton_2");
-            }
-            else if (eliteType == "OrcChieftain")
-            {
-                // Orc Chieftain may have a goblin guard
-                if (UnityEngine.Random.value < 0.5f)
+                for (int x = 0; x < size; x++)
                 {
-                    SpawnEnemy("Goblin", new Vector3(-4f, 3.0f, 0f), "OrcGuard_1");
+                    float dx = (x - centerX) / 20f;
+                    float dy = (y - centerY) / 28f;
+                    if (dx * dx + dy * dy < 1f)
+                        pixels[y * size + x] = color;
+
+                    float eyeY = centerY + 8;
+                    float leftEyeX = centerX - 8;
+                    float rightEyeX = centerX + 8;
+
+                    float dxL = (x - leftEyeX);
+                    float dyL = (y - eyeY);
+                    float dxR = (x - rightEyeX);
+                    float dyR = (y - eyeY);
+
+                    if (dxL * dxL + dyL * dyL < 16)
+                        pixels[y * size + x] = Color.white;
+                    if (dxR * dxR + dyR * dyR < 16)
+                        pixels[y * size + x] = Color.white;
+
+                    if (dxL * dxL + dyL * dyL < 4)
+                        pixels[y * size + x] = Color.black;
+                    if (dxR * dxR + dyR * dyR < 4)
+                        pixels[y * size + x] = Color.black;
                 }
             }
 
-            Debug.Log("[RuntimeEnemySpawner] Elite encounter spawned");
-        }
+            texture.SetPixels(pixels);
+            texture.Apply();
 
-        /// <summary>
-        /// Spawn an enemy by type name at a specific position.
-        /// </summary>
-        public EnemyBase SpawnEnemy(string typeName, Vector3 position, string name = null)
-        {
-            position.y = 3.0f; // Force Y position
-
-            if (!EnemyTypes.TryGetValue(typeName, out Type enemyType))
-            {
-                Debug.LogWarning($"[RuntimeEnemySpawner] Unknown enemy type: {typeName}, defaulting to Goblin");
-                enemyType = typeof(GoblinEnemy);
-            }
-
-            GameObject enemy = new GameObject(name ?? typeName);
-            enemy.transform.position = position;
-
-            // Add the specific enemy component
-            var enemyComponent = enemy.AddComponent(enemyType) as EnemyBase;
-
-            // Add SpriteRenderer
-            var sr = enemy.AddComponent<SpriteRenderer>();
-            sr.sortingLayerName = "Default";
-            sr.sortingOrder = 5;
-
-            // Try to load sprite for this enemy type
-            Sprite sprite = LoadSpriteForEnemy(typeName);
-            if (sprite != null)
-            {
-                sr.sprite = sprite;
-            }
-            else
-            {
-                Debug.LogWarning($"[RuntimeEnemySpawner] No sprite found for {typeName}");
-            }
-
-            // Add Collider for clicking
-            var collider = enemy.AddComponent<BoxCollider2D>();
-            collider.size = new Vector2(1.5f, 2f);
-            collider.isTrigger = false;
-
-            // Add EnemyClickTarget
-            if (enemy.GetComponent<Game.Enemies.EnemyClickTarget>() == null)
-            {
-                enemy.AddComponent<Game.Enemies.EnemyClickTarget>();
-            }
-
-            Debug.Log($"[RuntimeEnemySpawner] Spawned {typeName}: {enemy.name} at {position}");
-            return enemyComponent;
-        }
-
-        private Sprite LoadSpriteForEnemy(string typeName)
-        {
-            // Try to load from Resources/Sprites/{typeName}
-            string path = $"Sprites/{typeName}";
-            Sprite sprite = Resources.Load<Sprite>(path);
-            if (sprite != null) return sprite;
-
-            // Try alternate paths
-            sprite = Resources.Load<Sprite>($"Enemies/{typeName}");
-            if (sprite != null) return sprite;
-
-            // Fallback to goblin sprite
-            if (goblinSprite != null) return goblinSprite;
-
-            // Try loading default goblin
-            return Resources.Load<Sprite>(spriteResourcePath);
-        }
-
-        /// <summary>
-        /// Get a random regular enemy type name.
-        /// </summary>
-        public static string GetRandomRegularEnemy()
-        {
-            return RegularEnemyTypes[UnityEngine.Random.Range(0, RegularEnemyTypes.Length)];
-        }
-
-        /// <summary>
-        /// Get a random elite enemy type name.
-        /// </summary>
-        public static string GetRandomEliteEnemy()
-        {
-            return EliteEnemyTypes[UnityEngine.Random.Range(0, EliteEnemyTypes.Length)];
+            return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
         }
     }
 }

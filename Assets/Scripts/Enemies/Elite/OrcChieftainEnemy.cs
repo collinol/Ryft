@@ -11,11 +11,14 @@ namespace Game.Enemies.Elite
 
         protected override void Awake()
         {
-            displayName = "Orc Chieftain";
-            baseStats.maxHealth = 80;
-            baseStats.strength = 6;
+            if (sourceDef == null)
+            {
+                displayName = "Orc Chieftain";
+                baseStats.maxHealth = 80;
+                baseStats.strength = 6;
+                abilityIds = new[] { "WarCryAbility", "HeavySmashAbility", "RallyAbility", "EnemyStrikeAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "WarCryAbility", "HeavySmashAbility", "RallyAbility", "EnemyStrikeAbility" };
         }
 
         protected override string PickEnemyAbilityId()

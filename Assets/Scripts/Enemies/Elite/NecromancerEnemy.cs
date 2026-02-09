@@ -13,11 +13,14 @@ namespace Game.Enemies.Elite
 
         protected override void Awake()
         {
-            displayName = "Necromancer";
-            baseStats.maxHealth = 60;
-            baseStats.strength = 3;
+            if (sourceDef == null)
+            {
+                displayName = "Necromancer";
+                baseStats.maxHealth = 60;
+                baseStats.strength = 3;
+                abilityIds = new[] { "SummonAbility", "DrainLifeAbility", "CurseAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "SummonAbility", "DrainLifeAbility", "CurseAbility" };
         }
 
         protected override string PickEnemyAbilityId()

@@ -13,4 +13,20 @@ MonoBehaviour:
   m_Name: EnemyAbilityDatabase
   m_EditorClassIdentifier: 
   abilities:
+  - {fileID: 11400000, guid: 6125d765b3d108142a2e8c4d76b6bc3c, type: 2}
+  - {fileID: 11400000, guid: 207022b8a789bdd4786d01c125249ffe, type: 2}
+  - {fileID: 11400000, guid: 8461cf110475d1a4785ea402ec597ba0, type: 2}
+  - {fileID: 11400000, guid: a8c392fe2408d0344b2534823a16103b, type: 2}
+  - {fileID: 11400000, guid: d66ec1a63db050b489d79bb373443ca7, type: 2}
+  - {fileID: 11400000, guid: 9689ada04b580fd49bb996ea2f7c8128, type: 2}
   - {fileID: 11400000, guid: 7d70e9c0f77fbee42aeb459a7629f216, type: 2}
+  - {fileID: 11400000, guid: 8da0c921a37a3934cadedf16e1ad4690, type: 2}
+  - {fileID: 11400000, guid: 4cb32715ddda22d4598342e5b5d05618, type: 2}
+  - {fileID: 11400000, guid: fa455f13be9894a4a9fcc822cf7180ee, type: 2}
+  - {fileID: 11400000, guid: 14376cbcb1074ad49a610fb2bb232024, type: 2}
+  - {fileID: 11400000, guid: 16f87657fc75d2749a85bb6b1f1e129c, type: 2}
+  - {fileID: 11400000, guid: 38f175ccaf38729428a93a6f2dadc463, type: 2}
+  - {fileID: 11400000, guid: c9e7f0f3cef689749b901feb7291b6c6, type: 2}
+  - {fileID: 11400000, guid: 5a4ecc1f97a6d7c4f96a8123d12c5ae6, type: 2}
+  - {fileID: 11400000, guid: c6337f2bfcc799349a0bdf86f1a4f28c, type: 2}
+  - {fileID: 11400000, guid: 21ab8965196fafc46a70aa1fa8cc7b0b, type: 2}

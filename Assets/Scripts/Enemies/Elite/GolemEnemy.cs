@@ -11,11 +11,14 @@ namespace Game.Enemies.Elite
 
         protected override void Awake()
         {
-            displayName = "Stone Golem";
-            baseStats.maxHealth = 120;
-            baseStats.strength = 4;
+            if (sourceDef == null)
+            {
+                displayName = "Stone Golem";
+                baseStats.maxHealth = 120;
+                baseStats.strength = 4;
+                abilityIds = new[] { "SlamAbility", "RockArmorAbility", "EarthquakeAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "SlamAbility", "RockArmorAbility", "EarthquakeAbility" };
         }
 
         protected override string PickEnemyAbilityId()

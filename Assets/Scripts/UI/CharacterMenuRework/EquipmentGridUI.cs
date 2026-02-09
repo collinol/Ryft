@@ -77,7 +77,11 @@ namespace Game.UI.Inventory
 
                 // slot mapping only for character grid
                 if (isCharacterGrid)
+                {
                     cell.characterSlot = (i < characterSlots.Count) ? characterSlots[i] : Game.Equipment.EquipmentSlot.None;
+                    // Set the slot label so player knows what goes here
+                    cell.CreateSlotLabelIfNeeded(GetSlotDisplayName(cell.characterSlot));
+                }
 
                 cell.onClicked = onClicked;
                 _cells.Add(cell);
@@ -85,5 +89,26 @@ namespace Game.UI.Inventory
         }
 
         public EquipmentCellUI GetCell(int i) => (i >= 0 && i < _cells.Count) ? _cells[i] : null;
+
+        /// <summary>
+        /// Get a user-friendly display name for an equipment slot.
+        /// </summary>
+        private string GetSlotDisplayName(Game.Equipment.EquipmentSlot slot)
+        {
+            return slot switch
+            {
+                Game.Equipment.EquipmentSlot.Head => "Head",
+                Game.Equipment.EquipmentSlot.Shoulders => "Shoulders",
+                Game.Equipment.EquipmentSlot.Chest => "Chest",
+                Game.Equipment.EquipmentSlot.Hands => "Hands",
+                Game.Equipment.EquipmentSlot.Legs => "Legs",
+                Game.Equipment.EquipmentSlot.Feet => "Feet",
+                Game.Equipment.EquipmentSlot.Weapon => "Weapon",
+                Game.Equipment.EquipmentSlot.Offhand => "Offhand",
+                Game.Equipment.EquipmentSlot.Accessory1 => "Accessory",
+                Game.Equipment.EquipmentSlot.Accessory2 => "Accessory",
+                _ => ""
+            };
+        }
     }
 }

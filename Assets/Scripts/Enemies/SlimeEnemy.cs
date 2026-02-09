@@ -9,11 +9,14 @@ namespace Game.Enemies
     {
         protected override void Awake()
         {
-            displayName = "Slime";
-            baseStats.maxHealth = 25;
-            baseStats.strength = 1;
+            if (sourceDef == null)
+            {
+                displayName = "Slime";
+                baseStats.maxHealth = 25;
+                baseStats.strength = 1;
+                abilityIds = new[] { "SlimeAttackAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "SlimeAttackAbility" };
         }
     }
 }

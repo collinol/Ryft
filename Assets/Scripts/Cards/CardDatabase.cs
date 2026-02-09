@@ -32,15 +32,18 @@ namespace Game.Cards
         // common resource paths used by Load()
         private const string PathNoSpace   = "Cards/CardDatabase";
         private const string PathWithSpace = "Cards/Card Database";
+        private const string PathDatabases = "databases/CardDatabase";
 
         // ————— Lifecycle ————————————————————————————————————————————————
 
         public static CardDatabase Load()
         {
-            var db = Resources.Load<CardDatabase>(PathNoSpace) ?? Resources.Load<CardDatabase>(PathWithSpace);
+            var db = Resources.Load<CardDatabase>(PathNoSpace)
+                  ?? Resources.Load<CardDatabase>(PathWithSpace)
+                  ?? Resources.Load<CardDatabase>(PathDatabases);
             if (!db)
             {
-                Debug.LogError($"CardDatabase not found at Resources/{PathNoSpace} or Resources/{PathWithSpace}");
+                Debug.LogError($"CardDatabase not found at Resources/{PathNoSpace}, Resources/{PathWithSpace}, or Resources/{PathDatabases}");
                 return null;
             }
             db.Build();

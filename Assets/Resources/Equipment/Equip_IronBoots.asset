@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bf7f6dc94f4753748867b9c58c2ffdc6, type: 3}
   m_Name: Equip_IronBoots
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Equip_IronBoots
   displayName: Iron Boots
   description: Sturdy boots that provide stability.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 2154103ed0dfb974cb06e047ff2161cd, type: 3}
   rarity: 0
+  level: 1
   slot: 6
   maxDurability: 50
   bonusStats:
@@ -24,4 +25,4 @@ MonoBehaviour:
     strength: 0
     mana: 0
     engineering: 0
-  runtimeEffectTypeName:
+  runtimeEffectTypeName: 

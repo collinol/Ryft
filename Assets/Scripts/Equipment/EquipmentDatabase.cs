@@ -25,6 +25,7 @@ namespace Game.Equipment
         [Serializable]
         public struct RarityWeights
         {
+
             public int common;
             public int uncommon;
             public int rare;
@@ -54,7 +55,7 @@ namespace Game.Equipment
         [Header("Reward Settings")]
         public RarityWeights rewardWeights = RarityWeights.Default;
 
-        private const string ResNoSpace = "Equipment/EquipmentDatabase";
+        private const string ResNoSpace = "databases/EquipmentDatabase";
         private const string ResWithSpace = "Equipment/Equipment Database";
         public EquipmentDef Get(int index)
         {
@@ -120,6 +121,47 @@ namespace Game.Equipment
                 if (roll <= sum) return equip;
 
             return cumulative[cumulative.Count - 1].equip;
+        }
+
+        /// <summary>
+        /// Roll a random equipment reward for a specific level, weighted by rarity.
+        /// </summary>
+        public EquipmentDef RollRewardForLevel(int level, System.Random rng = null)
+        {
+            var pool = items.Where(e => e != null && e.level == level).ToList();
+            if (pool.Count == 0)
+            {
+                Debug.LogWarning($"[EquipmentDatabase] No equipment found for level {level}");
+                return null;
+            }
+
+            rng ??= new System.Random();
+
+            int total = 0;
+            var cumulative = new List<(EquipmentDef equip, int sum)>(pool.Count);
+
+            foreach (var e in pool)
+            {
+                int w = Mathf.Max(1, rewardWeights.For(e.rarity));
+                total += w;
+                cumulative.Add((e, total));
+            }
+
+            if (total <= 0) return pool[rng.Next(pool.Count)];
+
+            int roll = rng.Next(1, total + 1);
+            foreach (var (equip, sum) in cumulative)
+                if (roll <= sum) return equip;
+
+            return cumulative[cumulative.Count - 1].equip;
+        }
+
+        /// <summary>
+        /// Get all equipment at a specific level.
+        /// </summary>
+        public List<EquipmentDef> GetByLevel(int level)
+        {
+            return items.Where(e => e != null && e.level == level).ToList();
         }
 
         /// <summary>

@@ -9,11 +9,14 @@ namespace Game.Enemies
     {
         protected override void Awake()
         {
-            displayName = "Bandit";
-            baseStats.maxHealth = 18;
-            baseStats.strength = 4;
+            if (sourceDef == null)
+            {
+                displayName = "Bandit";
+                baseStats.maxHealth = 18;
+                baseStats.strength = 4;
+                abilityIds = new[] { "DaggerStrikeAbility", "StealGoldAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "DaggerStrikeAbility", "StealGoldAbility" };
         }
 
         protected override string PickEnemyAbilityId()

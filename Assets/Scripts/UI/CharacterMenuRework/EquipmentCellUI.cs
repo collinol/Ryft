@@ -65,7 +65,61 @@ namespace Game.UI.Inventory
 
         public void SetSlotLabel(string text)
         {
-            if (slotLabel) slotLabel.text = text ?? string.Empty;
+            // Create label if it doesn't exist
+            if (slotLabel == null && !string.IsNullOrEmpty(text))
+            {
+                var labelGo = new GameObject("SlotLabel");
+                labelGo.transform.SetParent(transform, false);
+
+                var rt = labelGo.AddComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0, 0);
+                rt.anchorMax = new Vector2(1, 0.3f);
+                rt.offsetMin = new Vector2(2, 2);
+                rt.offsetMax = new Vector2(-2, 0);
+
+                slotLabel = labelGo.AddComponent<TMP_Text>();
+                // TMP_Text is abstract, we need TextMeshProUGUI
+            }
+
+            if (slotLabel != null)
+            {
+                slotLabel.text = text ?? string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Creates the slot label with proper styling. Call after instantiation.
+        /// </summary>
+        public void CreateSlotLabelIfNeeded(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            // Check if label already exists
+            if (slotLabel != null)
+            {
+                slotLabel.text = text;
+                return;
+            }
+
+            // Create new label
+            var labelGo = new GameObject("SlotLabel");
+            labelGo.transform.SetParent(transform, false);
+
+            var rt = labelGo.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0, 0);
+            rt.anchorMax = new Vector2(1, 0.35f);
+            rt.offsetMin = new Vector2(1, 1);
+            rt.offsetMax = new Vector2(-1, 0);
+
+            var tmp = labelGo.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = 10;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = new Color(0.8f, 0.8f, 0.8f, 0.9f);
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Truncate;
+
+            slotLabel = tmp;
         }
 
         public void BindItem(EquipmentInstance inst)

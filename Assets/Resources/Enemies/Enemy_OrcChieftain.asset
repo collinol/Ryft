@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20f524f5ccfb36f49a14b91ceca5f3f0, type: 3}
+  m_Name: Enemy_OrcChieftain
+  m_EditorClassIdentifier: 
+  id: Enemy_OrcChieftain
+  displayName: Orc Chieftain
+  description: 
+  sprite: {fileID: 21300000, guid: 5949a8d09bc151f47a2a2ed0dd46fef2, type: 3}
+  tier: 1
+  minLevel: 0
+  baseStats:
+    maxHealth: 80
+    strength: 6
+    mana: 0
+    engineering: 0
+  abilityIds:
+  - WarCryAbility
+  - HeavySmashAbility
+  - RallyAbility
+  - EnemyStrikeAbility
+  runtimeTypeName: Game.Enemies.Elite.OrcChieftainEnemy
+  minions:
+  - minionDef: {fileID: 11400000, guid: 4c6448ed7f1e0ef469242d5d3f53d82a, type: 2}
+    count: 1
+    spawnChance: 0.5
+  proceduralColor: {r: 0.3, g: 0.5, b: 0.1, a: 1}

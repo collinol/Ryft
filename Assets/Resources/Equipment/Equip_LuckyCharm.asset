@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bf7f6dc94f4753748867b9c58c2ffdc6, type: 3}
   m_Name: Equip_LuckyCharm
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   id: Equip_LuckyCharm
   displayName: Lucky Charm
   description: A mysterious charm that grants critical strike chance.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 963a0fa9fd2964c45a9b1490a1bd3b4a, type: 3}
   rarity: 2
+  level: 2
   slot: 7
   maxDurability: 0
   bonusStats:

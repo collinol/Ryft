@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -23,11 +24,9 @@ namespace Game.TimePortal
         [SerializeField] private Button declineButton;
 
         [Header("Settings")]
-        [SerializeField] private int gearChoices = 3;
         [SerializeField] private int futureLevelOffset = 3;
 
-        private List<EquipmentDef> offeredGear = new();
-        private EquipmentDef selectedGear;
+        private EquipmentDef offeredGear;  // Single gear piece offered
         private EquipmentDatabase equipDb;
         private int currentLevel;
         private string requiredEliteType;
@@ -95,19 +94,54 @@ namespace Game.TimePortal
 
         private void GenerateGearOffers()
         {
-            offeredGear.Clear();
-            if (equipDb == null) return;
+            offeredGear = null;
+            if (equipDb == null)
+            {
+                Debug.LogError("[TimePortal] EquipmentDatabase is null!");
+                return;
+            }
 
             var rng = new System.Random();
 
-            // Offer gear from "future" - higher rarity items
-            var items = equipDb.RollRewards(gearChoices, rng, EquipmentRarity.Rare);
-            offeredGear.AddRange(items);
+            // Always offer level 2 gear (gear from the "future")
+            int targetLevel = 2;
+
+            Debug.Log($"[TimePortal] CurrentMapLevel={currentLevel}, looking for level {targetLevel} gear");
+            Debug.Log($"[TimePortal] Equipment database has {equipDb.Count} items total");
+
+            // Debug: list all equipment and their levels
+            foreach (var item in equipDb.All)
+            {
+                if (item != null)
+                    Debug.Log($"[TimePortal] Equipment: {item.displayName}, level={item.level}");
+            }
+
+            // Count how many level 2 items exist
+            var level2Items = equipDb.All.Where(e => e != null && e.level == 2).ToList();
+            Debug.Log($"[TimePortal] Found {level2Items.Count} items at level 2");
+
+            offeredGear = equipDb.RollRewardForLevel(targetLevel, rng);
 
             // Pick a random elite type for the obligation
-            requiredEliteType = RuntimeEnemySpawner.GetRandomEliteEnemy();
+            var enemyDb = Game.Enemies.EnemyDatabase.Load();
+            if (enemyDb != null)
+            {
+                var eliteDef = enemyDb.GetRandom(Game.Enemies.EnemyTier.Elite, 0);
+                requiredEliteType = eliteDef != null ? eliteDef.id : "DarkKnight";
+            }
+            else
+            {
+                requiredEliteType = "DarkKnight";
+            }
 
-            Debug.Log($"[TimePortal] Offering {offeredGear.Count} pieces of gear. Required elite: {requiredEliteType}");
+            if (offeredGear != null)
+            {
+                Debug.Log($"[TimePortal] Offering: {offeredGear.displayName} (level={offeredGear.level}). Required elite: {requiredEliteType}");
+            }
+            else
+            {
+                Debug.LogWarning($"[TimePortal] No level {targetLevel} gear found! Check that equipment assets have level field set to 2.");
+            }
         }
 
         private void CreateUI()
@@ -147,7 +181,15 @@ namespace Game.TimePortal
             var descGo = new GameObject("Description");
             descGo.transform.SetParent(canvas.transform, false);
             descriptionText = descGo.AddComponent<TextMeshProUGUI>();
-            descriptionText.text = "Your future self reaches through time...\n\"Take this gear. But you must fulfill certain obligations.\"";
+
+            if (offeredGear != null)
+            {
+                descriptionText.text = "Your future self reaches through time...\n\"I bring you this gear from level " + (currentLevel + 1) + ". Accept it, but you will need to make the same choices as I have if you wish to keep it.\"";
+            }
+            else
+            {
+                descriptionText.text = "Your future self reaches through time...\n\"I have nothing to offer you yet. Come back when the path grows deeper.\"";
+            }
             descriptionText.fontSize = 20;
             descriptionText.alignment = TextAlignmentOptions.Center;
             descriptionText.color = new Color(0.8f, 0.8f, 1f);
@@ -155,21 +197,34 @@ namespace Game.TimePortal
             descRt.anchorMin = new Vector2(0.15f, 0.7f);
             descRt.anchorMax = new Vector2(0.85f, 0.85f);
 
-            // Gear container
+            // Gear container (center single item)
             var containerGo = new GameObject("GearContainer");
             containerGo.transform.SetParent(canvas.transform, false);
-            var hlg = containerGo.AddComponent<HorizontalLayoutGroup>();
-            hlg.spacing = 30;
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            var containerRt = containerGo.GetComponent<RectTransform>();
-            containerRt.anchorMin = new Vector2(0.15f, 0.35f);
-            containerRt.anchorMax = new Vector2(0.85f, 0.65f);
+            var containerRt = containerGo.AddComponent<RectTransform>();
+            containerRt.anchorMin = new Vector2(0.35f, 0.35f);
+            containerRt.anchorMax = new Vector2(0.65f, 0.65f);
+            containerRt.offsetMin = Vector2.zero;
+            containerRt.offsetMax = Vector2.zero;
             gearContainer = containerGo.transform;
 
-            // Create gear options
-            for (int i = 0; i < offeredGear.Count; i++)
+            // Create single gear display (not a choice, just showing what's offered)
+            if (offeredGear != null)
             {
-                CreateGearOption(gearContainer, offeredGear[i], i);
+                CreateGearDisplay(gearContainer, offeredGear);
+            }
+            else
+            {
+                // No gear available - show empty state
+                var emptyGo = new GameObject("NoGear");
+                emptyGo.transform.SetParent(gearContainer, false);
+                var emptyRt = emptyGo.AddComponent<RectTransform>();
+                emptyRt.anchorMin = Vector2.zero;
+                emptyRt.anchorMax = Vector2.one;
+                var emptyText = emptyGo.AddComponent<TextMeshProUGUI>();
+                emptyText.text = "No gear available\nat this level";
+                emptyText.fontSize = 24;
+                emptyText.alignment = TextAlignmentOptions.Center;
+                emptyText.color = new Color(0.5f, 0.5f, 0.6f);
             }
 
             // Obligations text
@@ -194,7 +249,7 @@ namespace Game.TimePortal
             acceptImg.color = new Color(0.3f, 0.2f, 0.5f);
             acceptButton = acceptGo.AddComponent<Button>();
             acceptButton.onClick.AddListener(OnAcceptClicked);
-            acceptButton.interactable = false;
+            acceptButton.interactable = offeredGear != null;  // Enable if gear is available
 
             var acceptTextGo = new GameObject("Text");
             acceptTextGo.transform.SetParent(acceptGo.transform, false);
@@ -230,97 +285,104 @@ namespace Game.TimePortal
             declineTextRt.anchorMax = Vector2.one;
         }
 
-        private void CreateGearOption(Transform parent, EquipmentDef equip, int index)
+        private void CreateGearDisplay(Transform parent, EquipmentDef equip)
         {
-            var go = new GameObject($"Gear_{index}");
+            var go = new GameObject("OfferedGear");
             go.transform.SetParent(parent, false);
 
             var rt = go.AddComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(150, 200);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
 
             var img = go.AddComponent<Image>();
             img.color = GetRarityColor(equip.rarity);
-
-            var btn = go.AddComponent<Button>();
-            btn.onClick.AddListener(() => OnGearSelected(equip, go));
 
             // Name
             var nameGo = new GameObject("Name");
             nameGo.transform.SetParent(go.transform, false);
             var nameText = nameGo.AddComponent<TextMeshProUGUI>();
             nameText.text = equip.displayName;
-            nameText.fontSize = 16;
+            nameText.fontSize = 22;
             nameText.alignment = TextAlignmentOptions.Center;
             nameText.color = Color.white;
+            nameText.fontStyle = FontStyles.Bold;
             var nameRt = nameGo.GetComponent<RectTransform>();
-            nameRt.anchorMin = new Vector2(0, 0.7f);
+            nameRt.anchorMin = new Vector2(0, 0.75f);
             nameRt.anchorMax = new Vector2(1, 0.95f);
-            nameRt.offsetMin = new Vector2(5, 0);
-            nameRt.offsetMax = new Vector2(-5, 0);
+            nameRt.offsetMin = new Vector2(10, 0);
+            nameRt.offsetMax = new Vector2(-10, 0);
+
+            // Level indicator
+            var levelGo = new GameObject("Level");
+            levelGo.transform.SetParent(go.transform, false);
+            var levelText = levelGo.AddComponent<TextMeshProUGUI>();
+            levelText.text = $"Level {equip.level} Gear";
+            levelText.fontSize = 14;
+            levelText.alignment = TextAlignmentOptions.Center;
+            levelText.color = new Color(1f, 0.9f, 0.5f);
+            var levelRt = levelGo.GetComponent<RectTransform>();
+            levelRt.anchorMin = new Vector2(0, 0.65f);
+            levelRt.anchorMax = new Vector2(1, 0.75f);
+            levelRt.offsetMin = new Vector2(10, 0);
+            levelRt.offsetMax = new Vector2(-10, 0);
+
+            // Slot
+            var slotGo = new GameObject("Slot");
+            slotGo.transform.SetParent(go.transform, false);
+            var slotText = slotGo.AddComponent<TextMeshProUGUI>();
+            slotText.text = $"[{equip.slot}]";
+            slotText.fontSize = 14;
+            slotText.alignment = TextAlignmentOptions.Center;
+            slotText.color = new Color(0.7f, 0.7f, 0.8f);
+            var slotRt = slotGo.GetComponent<RectTransform>();
+            slotRt.anchorMin = new Vector2(0, 0.55f);
+            slotRt.anchorMax = new Vector2(1, 0.65f);
+            slotRt.offsetMin = new Vector2(10, 0);
+            slotRt.offsetMax = new Vector2(-10, 0);
 
             // Stats
             var statsGo = new GameObject("Stats");
             statsGo.transform.SetParent(go.transform, false);
             var statsText = statsGo.AddComponent<TextMeshProUGUI>();
             statsText.text = FormatStats(equip);
-            statsText.fontSize = 12;
+            statsText.fontSize = 16;
             statsText.alignment = TextAlignmentOptions.Center;
             statsText.color = new Color(0.9f, 0.9f, 0.9f);
             var statsRt = statsGo.GetComponent<RectTransform>();
             statsRt.anchorMin = new Vector2(0, 0.2f);
-            statsRt.anchorMax = new Vector2(1, 0.7f);
-            statsRt.offsetMin = new Vector2(5, 0);
-            statsRt.offsetMax = new Vector2(-5, 0);
+            statsRt.anchorMax = new Vector2(1, 0.55f);
+            statsRt.offsetMin = new Vector2(10, 0);
+            statsRt.offsetMax = new Vector2(-10, 0);
 
             // Rarity
             var rarityGo = new GameObject("Rarity");
             rarityGo.transform.SetParent(go.transform, false);
             var rarityText = rarityGo.AddComponent<TextMeshProUGUI>();
             rarityText.text = equip.rarity.ToString();
-            rarityText.fontSize = 14;
+            rarityText.fontSize = 16;
             rarityText.alignment = TextAlignmentOptions.Center;
             rarityText.color = GetRarityTextColor(equip.rarity);
+            rarityText.fontStyle = FontStyles.Italic;
             var rarityRt = rarityGo.GetComponent<RectTransform>();
-            rarityRt.anchorMin = new Vector2(0, 0.02f);
+            rarityRt.anchorMin = new Vector2(0, 0.05f);
             rarityRt.anchorMax = new Vector2(1, 0.18f);
-            rarityRt.offsetMin = new Vector2(5, 0);
-            rarityRt.offsetMax = new Vector2(-5, 0);
-        }
-
-        private void OnGearSelected(EquipmentDef equip, GameObject buttonGo)
-        {
-            selectedGear = equip;
-
-            // Update visual selection
-            foreach (Transform child in gearContainer)
-            {
-                var img = child.GetComponent<Image>();
-                if (img != null)
-                {
-                    var c = img.color;
-                    c.a = child.gameObject == buttonGo ? 1f : 0.5f;
-                    img.color = c;
-                }
-            }
-
-            acceptButton.interactable = true;
-            UpdateObligationsText();
-
-            Debug.Log($"[TimePortal] Selected gear: {equip.displayName}");
+            rarityRt.offsetMin = new Vector2(10, 0);
+            rarityRt.offsetMax = new Vector2(-10, 0);
         }
 
         private void UpdateObligationsText()
         {
             if (obligationsText == null) return;
 
-            if (selectedGear == null)
+            if (offeredGear == null)
             {
-                obligationsText.text = "Select gear to see obligations...";
+                obligationsText.text = "";
             }
             else
             {
-                int defeatLevel = currentLevel + 2;
-                int returnLevel = currentLevel + futureLevelOffset;
+                // Defeat level matches the gear level (e.g., level 2 gear requires defeating elite at level 2)
+                int defeatLevel = offeredGear.level;
+                int returnLevel = offeredGear.level + 1;
 
                 obligationsText.text = $"OBLIGATIONS:\n" +
                     $"1. Defeat {requiredEliteType} at level {defeatLevel}\n" +
@@ -331,22 +393,22 @@ namespace Game.TimePortal
 
         private void OnAcceptClicked()
         {
-            if (selectedGear == null) return;
+            if (offeredGear == null) return;
 
             // Add gear to player inventory
             var equipMgr = EquipmentManager.Instance;
             if (equipMgr != null)
             {
-                var instance = new EquipmentInstance(selectedGear);
+                var instance = new EquipmentInstance(offeredGear);
                 equipMgr.AddToInventory(instance);
-                Debug.Log($"[TimePortal] Added borrowed gear: {selectedGear.displayName}");
+                Debug.Log($"[TimePortal] Added borrowed gear: {offeredGear.displayName}");
             }
 
             // Track borrowed gear and obligations
             var state = GetOrCreateTimePortalState();
-            state.BorrowGear(selectedGear.id, currentLevel, requiredEliteType);
+            state.BorrowGear(offeredGear.id, currentLevel, requiredEliteType);
 
-            Debug.Log($"[TimePortal] Accepted bargain for {selectedGear.displayName}");
+            Debug.Log($"[TimePortal] Accepted bargain for {offeredGear.displayName}");
 
             ReturnToMap();
         }

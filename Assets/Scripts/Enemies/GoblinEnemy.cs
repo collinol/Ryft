@@ -8,12 +8,14 @@ namespace Game.Enemies
     {
         protected override void Awake()
         {
-
-            displayName = "Goblin";
-            baseStats.maxHealth = 20;
-            baseStats.strength = 2;
+            if (sourceDef == null)
+            {
+                displayName = "Goblin";
+                baseStats.maxHealth = 20;
+                baseStats.strength = 2;
+                abilityIds = new[] { "EnemyStrikeAbility" };
+            }
             base.Awake();
-            abilityIds = new[] { "EnemyStrikeAbility" };
         }
     }
 }

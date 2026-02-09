@@ -11,8 +11,8 @@ namespace Game.Shop
         public enum ItemType { Card, Equipment, Repair }
 
         public ItemType Type { get; }
-        public CardDef Card { get; }
-        public EquipmentDef Equipment { get; }
+        public CardDef Card { get; private set; }
+        public EquipmentDef Equipment { get; private set; }
         public int Price { get; }
         public bool IsSold { get; set; }
 

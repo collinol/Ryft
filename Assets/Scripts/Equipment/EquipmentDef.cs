@@ -13,6 +13,9 @@ namespace Game.Equipment
         public Sprite icon;
         public EquipmentRarity rarity = EquipmentRarity.Common;
 
+        [Header("Level Gating")]
+        [Min(1)] public int level = 1;    // Minimum map level to obtain this gear (1 = always available)
+
         [Header("Slot & Durability")]
         public EquipmentSlot slot = EquipmentSlot.None;
         [Min(0)] public int maxDurability = 0; // 0 = unbreakable

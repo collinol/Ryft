@@ -109,6 +109,10 @@ public class MapController : MonoBehaviour
             // Check for pending portal fight outcome and resolve it
             ResolvePortalFightOutcome();
 
+            // Note: We don't auto-advance after fights. The player clicked a node to fight,
+            // that node became the current node, and after winning they return to that node
+            // and can manually choose where to go next.
+
             CenterCameraNow();
             BuildCurrentMarker();
             MoveCurrentMarkerToCurrent();
@@ -118,6 +122,9 @@ public class MapController : MonoBehaviour
             FocusCurrentOrChildren();
 
             RevealFrom(currentNode, 3);
+
+            // Create UI buttons (Inventory, etc.) - must be done even when restoring state
+            CreateMapUIButtons();
             return;
         }
         else
@@ -136,6 +143,19 @@ public class MapController : MonoBehaviour
         FocusCurrentOrChildren();
 
         if (verboseLogging) DumpMap();
+
+        // Create UI buttons (Inventory, etc.)
+        CreateMapUIButtons();
+    }
+
+    void CreateMapUIButtons()
+    {
+        // Check if MapUIButtons already exists
+        var existing = FindObjectOfType<Game.UI.MapUIButtons>();
+        if (existing != null) return;
+
+        var uiGo = new GameObject("MapUIButtons");
+        uiGo.AddComponent<Game.UI.MapUIButtons>();
     }
 
     // ───────────────────────── generation / graph ────────────────────────────────
@@ -505,7 +525,76 @@ public class MapController : MonoBehaviour
         FocusCurrentOrChildren();
     }
 
+    /// <summary>
+    /// After a fight victory, automatically advance to a connected node on the next level.
+    /// This is called when returning from RewardScene.
+    /// </summary>
+    private void AdvanceNodeAfterFight()
+    {
+        if (MapSession.I == null) return;
+        if (!MapSession.I.ShouldAdvanceNode) return;
 
+        // Clear the flag immediately
+        MapSession.I.ShouldAdvanceNode = false;
+
+        if (currentNode == null)
+        {
+            Debug.LogWarning("[MapController] AdvanceNodeAfterFight: currentNode is null");
+            return;
+        }
+
+        // Find a connected node on the next level
+        var connections = currentNode.connections;
+        if (connections == null || connections.Count == 0)
+        {
+            Debug.Log("[MapController] AdvanceNodeAfterFight: No connections to advance to");
+            return;
+        }
+
+        // Pick the first available connection (or random if you prefer)
+        MapNode nextNode = connections[0];
+
+        // If there are multiple connections, you could pick randomly:
+        // nextNode = connections[UnityEngine.Random.Range(0, connections.Count)];
+
+        if (nextNode == null)
+        {
+            Debug.LogWarning("[MapController] AdvanceNodeAfterFight: Next node is null");
+            return;
+        }
+
+        Debug.Log($"[MapController] Advancing from {currentNode.name} to {nextNode.name} after fight victory");
+
+        // Update current node
+        currentNode = nextNode;
+
+        // Update session map level
+        int levelIdx = FindLevelOf(currentNode);
+        if (MapSession.I != null)
+        {
+            MapSession.I.CurrentMapLevel = levelIdx;
+        }
+
+        // Apply reachability for the new current node
+        ApplyReachabilityForCurrent(includeChildren: true);
+
+        // Reveal upcoming rows
+        RevealFrom(currentNode, 3);
+
+        // Generate more map if needed
+        if ((levels.Count - 1 - levelIdx) < 3)
+        {
+            GenerateLevels(3);
+            ApplyReachabilityForCurrent(includeChildren: true);
+        }
+
+        // Update visuals
+        MoveCurrentMarkerToCurrent();
+        PanCameraTo(currentNode.transform.position);
+
+        // Update keyboard navigation
+        FocusCurrentOrChildren();
+    }
 
     /// <summary>
     /// Locks everything except the current node; optionally makes immediate children clickable.
@@ -828,6 +917,14 @@ public class MapController : MonoBehaviour
     }
 
     void OpenCharacterMenu()
+    {
+        OpenCharacterMenuPublic();
+    }
+
+    /// <summary>
+    /// Opens the character/inventory menu. Call from UI buttons or 'C' key.
+    /// </summary>
+    public void OpenCharacterMenuPublic()
     {
         // Save the current map state before switching scenes
         var session = MapSession.I;

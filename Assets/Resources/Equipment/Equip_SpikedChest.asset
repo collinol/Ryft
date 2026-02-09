@@ -15,9 +15,11 @@ MonoBehaviour:
   id: Equip_SpikedChest
   displayName: 
   description: 
-  icon: {fileID: 21300000, guid: f24be65464ebd244592ee4bca42d8885, type: 3}
+  icon: {fileID: 21300000, guid: dc8848f731663ce4785dd78e798fe03f, type: 3}
+  rarity: 3
+  level: 2
   slot: 3
-  maxDurability: 0
+  maxDurability: 20
   bonusStats:
     maxHealth: 10
     strength: 10

@@ -15,12 +15,28 @@ namespace Game.Enemies
         [Header("Stats")]
         [SerializeField] protected Stats baseStats = new Stats { maxHealth = 10, strength = 2 };
 
+        protected EnemyDef sourceDef;
+        public EnemyDef SourceDef => sourceDef;
+
         public string DisplayName => displayName;
         public Stats   BaseStats  => baseStats;
         public Stats   TotalStats => baseStats;
         public int     Health     { get; private set; }
         public bool    IsAlive    => Health > 0;
         public StatusEffectManager StatusEffects { get; private set; }
+
+        /// <summary>
+        /// Initialise identity, stats, and abilities from a data asset.
+        /// Call BEFORE Awake (i.e. while the GO is still inactive).
+        /// </summary>
+        public virtual void InitFromDef(EnemyDef def)
+        {
+            if (def == null) return;
+            sourceDef   = def;
+            displayName = def.displayName;
+            baseStats   = def.baseStats;
+            abilityIds  = def.abilityIds;
+        }
 
         private HealthBarView hpBar;
 

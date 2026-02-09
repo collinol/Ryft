@@ -18,6 +18,10 @@ namespace Game.UI
         [SerializeField] private bool showEnergy = true;
         [SerializeField] private bool showEnergyCredits = true;
 
+        [Header("Positioning")]
+        [SerializeField] private bool autoPosition = true;
+        [SerializeField] private Vector2 position = new Vector2(10, -10); // Top-left offset
+
         private FightSceneController fsc;
 
         void Awake()
@@ -25,6 +29,26 @@ namespace Game.UI
             if (!player) player = FindObjectOfType<PlayerCharacter>();
             if (!text)   text   = GetComponent<TMP_Text>();
             // do NOT subscribe here—controller might not be alive yet
+
+            // Auto-position to top-left to avoid overlapping with exit button
+            if (autoPosition)
+            {
+                PositionAtTopLeft();
+            }
+        }
+
+        private void PositionAtTopLeft()
+        {
+            var rt = GetComponent<RectTransform>();
+            if (rt == null) return;
+
+            // Anchor to top-left
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = position;
+
+            Debug.Log($"[PlayerStatsLabel] Positioned at top-left: {position}");
         }
 
         void OnEnable()
