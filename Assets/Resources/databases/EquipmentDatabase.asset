@@ -28,7 +28,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4a762becc3b1c324ab6e72e40c90e086, type: 2}
   - {fileID: 11400000, guid: 92a49fdbb0204cd4b835fe0e79c78ae4, type: 2}
   - {fileID: 11400000, guid: a10514bcafe7b44439f267a81276164f, type: 2}
-  - {fileID: 11400000, guid: c2b64db777dddc14c92b62709c9e7592, type: 2}
   rewardWeights:
     common: 50
     uncommon: 30

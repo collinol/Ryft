@@ -31,17 +31,29 @@ namespace Game.TimePortal
         private int currentLevel;
         private string requiredEliteType;
 
+        private bool isReceiveMode = true;
+
         void Start()
         {
             equipDb = EquipmentDatabase.Load();
             currentLevel = MapSession.I?.CurrentMapLevel ?? 0;
 
-            // Check for pending obligations first
-            CheckPendingObligations();
+            // Determine mode from MapSession
+            isReceiveMode = MapSession.I == null ||
+                            MapSession.I.PortalMode == MapSession.TimePortalMode.Receive;
 
-            // Generate gear offers
-            GenerateGearOffers();
-            CreateUI();
+            if (isReceiveMode)
+            {
+                // Envelope: receive gear from future self (skip obligation check)
+                GenerateGearOffers();
+                CreateReceiveUI();
+            }
+            else
+            {
+                // TimePortal: return to fulfill obligations
+                CheckPendingObligations();
+                CreateReturnUI();
+            }
         }
 
         private void CheckPendingObligations()
@@ -144,7 +156,7 @@ namespace Game.TimePortal
             }
         }
 
-        private void CreateUI()
+        private Canvas EnsureCanvas()
         {
             var canvas = FindObjectOfType<Canvas>();
             if (!canvas)
@@ -165,11 +177,21 @@ namespace Game.TimePortal
             bgRt.anchorMin = Vector2.zero;
             bgRt.anchorMax = Vector2.one;
 
+            return canvas;
+        }
+
+        /// <summary>
+        /// Receive mode UI (from Envelope node): offers gear from future self.
+        /// </summary>
+        private void CreateReceiveUI()
+        {
+            var canvas = EnsureCanvas();
+
             // Title
             var titleGo = new GameObject("Title");
             titleGo.transform.SetParent(canvas.transform, false);
             titleText = titleGo.AddComponent<TextMeshProUGUI>();
-            titleText.text = "TIME PORTAL";
+            titleText.text = "ENVELOPE FROM THE FUTURE";
             titleText.fontSize = 48;
             titleText.alignment = TextAlignmentOptions.Center;
             titleText.color = new Color(0.7f, 0.5f, 1f);
@@ -184,7 +206,7 @@ namespace Game.TimePortal
 
             if (offeredGear != null)
             {
-                descriptionText.text = "Your future self reaches through time...\n\"I bring you this gear from level " + (currentLevel + 1) + ". Accept it, but you will need to make the same choices as I have if you wish to keep it.\"";
+                descriptionText.text = "Your future self reaches through time...\n\"I bring you this gear. Accept it, but you must visit the Time Portal on the next map to complete the loop.\"";
             }
             else
             {
@@ -285,6 +307,103 @@ namespace Game.TimePortal
             declineTextRt.anchorMax = Vector2.one;
         }
 
+        /// <summary>
+        /// Return mode UI (from TimePortal node): shows obligation status.
+        /// </summary>
+        private void CreateReturnUI()
+        {
+            var canvas = EnsureCanvas();
+
+            // Title
+            var titleGo = new GameObject("Title");
+            titleGo.transform.SetParent(canvas.transform, false);
+            titleText = titleGo.AddComponent<TextMeshProUGUI>();
+            titleText.text = "TIME PORTAL";
+            titleText.fontSize = 48;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.color = new Color(0.5f, 0.8f, 1f);
+            var titleRt = titleGo.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.2f, 0.85f);
+            titleRt.anchorMax = new Vector2(0.8f, 0.95f);
+
+            // Description
+            var descGo = new GameObject("Description");
+            descGo.transform.SetParent(canvas.transform, false);
+            descriptionText = descGo.AddComponent<TextMeshProUGUI>();
+            descriptionText.text = "You step through the portal to close the loop...\nYour past self sent you here to fulfill your obligations.";
+            descriptionText.fontSize = 20;
+            descriptionText.alignment = TextAlignmentOptions.Center;
+            descriptionText.color = new Color(0.8f, 0.8f, 1f);
+            var descRt = descGo.GetComponent<RectTransform>();
+            descRt.anchorMin = new Vector2(0.15f, 0.7f);
+            descRt.anchorMax = new Vector2(0.85f, 0.85f);
+
+            // Obligation status display
+            var oblGo = new GameObject("ObligationStatus");
+            oblGo.transform.SetParent(canvas.transform, false);
+            obligationsText = oblGo.AddComponent<TextMeshProUGUI>();
+            obligationsText.fontSize = 20;
+            obligationsText.alignment = TextAlignmentOptions.Center;
+            obligationsText.color = new Color(1f, 0.8f, 0.5f);
+            var oblRt = oblGo.GetComponent<RectTransform>();
+            oblRt.anchorMin = new Vector2(0.15f, 0.3f);
+            oblRt.anchorMax = new Vector2(0.85f, 0.65f);
+
+            // Build obligation status text — only show obligations for THIS portal's borrow event
+            var state = GetOrCreateTimePortalState();
+            int worldLevel = MapSession.I != null ? MapSession.I.WorldLevel : 0;
+            int targetBorrowWorld = worldLevel - 1; // This portal closes the loop from the previous map
+            var relevantObligations = state.GetObligationsForBorrow(targetBorrowWorld);
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("OBLIGATION STATUS:");
+            sb.AppendLine();
+
+            if (relevantObligations.Count == 0)
+            {
+                sb.AppendLine("No obligations to fulfill.");
+            }
+            else
+            {
+                foreach (var obl in relevantObligations)
+                {
+                    string status = obl.completed ? "[COMPLETE]" : "[PENDING]";
+                    sb.AppendLine($"{status} {obl.Description}");
+                }
+            }
+
+            bool allMet = relevantObligations.Count > 0 && relevantObligations.TrueForAll(o => o.completed);
+            sb.AppendLine();
+            if (allMet)
+                sb.AppendLine("All obligations fulfilled! Your borrowed gear is permanent.");
+            else if (relevantObligations.Exists(o => !o.completed))
+                sb.AppendLine("Some obligations are still pending...");
+
+            obligationsText.text = sb.ToString();
+
+            // Continue button
+            var continueGo = new GameObject("ContinueButton");
+            continueGo.transform.SetParent(canvas.transform, false);
+            var continueRt = continueGo.AddComponent<RectTransform>();
+            continueRt.anchorMin = new Vector2(0.35f, 0.08f);
+            continueRt.anchorMax = new Vector2(0.65f, 0.18f);
+            var continueImg = continueGo.AddComponent<Image>();
+            continueImg.color = new Color(0.2f, 0.4f, 0.5f);
+            var continueBtn = continueGo.AddComponent<Button>();
+            continueBtn.onClick.AddListener(ReturnToMap);
+
+            var continueTextGo = new GameObject("Text");
+            continueTextGo.transform.SetParent(continueGo.transform, false);
+            var continueText = continueTextGo.AddComponent<TextMeshProUGUI>();
+            continueText.text = "Continue";
+            continueText.fontSize = 22;
+            continueText.alignment = TextAlignmentOptions.Center;
+            continueText.color = Color.white;
+            var continueTextRt = continueTextGo.GetComponent<RectTransform>();
+            continueTextRt.anchorMin = Vector2.zero;
+            continueTextRt.anchorMax = Vector2.one;
+        }
+
         private void CreateGearDisplay(Transform parent, EquipmentDef equip)
         {
             var go = new GameObject("OfferedGear");
@@ -380,14 +499,10 @@ namespace Game.TimePortal
             }
             else
             {
-                // Defeat level matches the gear level (e.g., level 2 gear requires defeating elite at level 2)
-                int defeatLevel = offeredGear.level;
-                int returnLevel = offeredGear.level + 1;
-
-                obligationsText.text = $"OBLIGATIONS:\n" +
-                    $"1. Defeat {requiredEliteType} at level {defeatLevel}\n" +
-                    $"2. Return to a Time Portal at level {returnLevel}\n" +
-                    $"\nFail these, and the gear vanishes!";
+                obligationsText.text = "OBLIGATIONS:\n" +
+                    "1. Defeat the highlighted elite on the next map\n" +
+                    "2. Visit the Time Portal that appears after\n" +
+                    "\nFail these, and the gear vanishes!";
             }
         }
 
@@ -444,7 +559,7 @@ namespace Game.TimePortal
             var parts = new List<string>();
             if (equip.bonusStats.maxHealth != 0) parts.Add($"HP: {equip.bonusStats.maxHealth:+#;-#;0}");
             if (equip.bonusStats.strength != 0) parts.Add($"STR: {equip.bonusStats.strength:+#;-#;0}");
-            if (equip.bonusStats.mana != 0) parts.Add($"MANA: {equip.bonusStats.mana:+#;-#;0}");
+            if (equip.bonusStats.intellect != 0) parts.Add($"INT: {equip.bonusStats.intellect:+#;-#;0}");
             if (equip.bonusStats.engineering != 0) parts.Add($"ENG: {equip.bonusStats.engineering:+#;-#;0}");
             return string.Join("\n", parts);
         }

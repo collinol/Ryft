@@ -429,6 +429,9 @@ namespace Game.UI.Inventory
             instructText.color = new Color(0.8f, 0.8f, 0.8f);
 
             Debug.Log("[CharacterMenuSetup] Exit button overlay created!");
+
+            // Create equipment tooltip on the overlay canvas so it renders above everything
+            EquipmentTooltip.Ensure(overlayCanvas);
         }
 
         void OnExitClicked()

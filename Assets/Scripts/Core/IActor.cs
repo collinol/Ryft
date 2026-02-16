@@ -13,6 +13,7 @@ namespace Game.Core
         StatusEffectManager StatusEffects { get; }
 
         void ApplyDamage(int amount);
+        void ApplyDamage(int amount, IActor attacker);
         void Heal(int amount);
     }
 }

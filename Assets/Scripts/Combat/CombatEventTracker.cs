@@ -32,8 +32,8 @@ namespace Game.Combat
         // Spell cast counter for SpellWeave
         private int spellsCastThisTurn = 0;
 
-        // Mana spending tracker for RunicSurge
-        private int totalManaSpentThisTurn = 0;
+        // Intellect spending tracker for RunicSurge
+        private int totalIntellectSpentThisTurn = 0;
 
         private struct KillInfo
         {
@@ -69,7 +69,7 @@ namespace Game.Combat
 
             DamageType type = damageSource switch
             {
-                StatField.Mana => DamageType.Magic,
+                StatField.Intellect => DamageType.Magic,
                 StatField.Engineering => DamageType.Engineering,
                 _ => DamageType.Physical
             };
@@ -127,7 +127,7 @@ namespace Game.Combat
             killsThisTurn = 0;
             recentKills.Clear();
             spellsCastThisTurn = 0;
-            totalManaSpentThisTurn = 0;
+            totalIntellectSpentThisTurn = 0;
         }
 
         /// <summary>
@@ -161,14 +161,14 @@ namespace Game.Combat
         }
 
         /// <summary>
-        /// Track Mana spending for RunicSurge
+        /// Track Intellect spending for RunicSurge
         /// </summary>
-        public void RecordManaSpent(int amount)
+        public void RecordIntellectSpent(int amount)
         {
-            totalManaSpentThisTurn += amount;
+            totalIntellectSpentThisTurn += amount;
         }
 
-        public int GetTotalManaSpentThisTurn() => totalManaSpentThisTurn;
+        public int GetTotalIntellectSpentThisTurn() => totalIntellectSpentThisTurn;
 
         /// <summary>
         /// Track damage taken

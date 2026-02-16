@@ -154,6 +154,7 @@ namespace Game.UI.Inventory
                 _pendingItem = item;
                 _pendingFrom = cell;
                 _pendingFromGrid  = grid;
+                EquipmentTooltip.Instance?.Hide();
                 Debug.Log($"[PICK] took {item.def?.id} from {grid}[{index}]");
                 HighlightCell(cell, true);
                 return;

@@ -13,13 +13,15 @@ namespace Game.TimePortal
         public int borrowedAtLevel;        // Map level where it was borrowed
         public int mustReturnByLevel;      // Level by which obligations must be met
         public bool obligationsMet;        // True if all obligations fulfilled
+        public int borrowWorldLevel;       // WorldLevel when this was borrowed
 
-        public BorrowedGear(string equipId, int currentLevel, int futureLevels = 3)
+        public BorrowedGear(string equipId, int currentLevel, int worldLevel, int futureLevels = 3)
         {
             equipmentId = equipId;
             borrowedAtLevel = currentLevel;
             mustReturnByLevel = currentLevel + futureLevels;
             obligationsMet = false;
+            borrowWorldLevel = worldLevel;
         }
 
         /// <summary>

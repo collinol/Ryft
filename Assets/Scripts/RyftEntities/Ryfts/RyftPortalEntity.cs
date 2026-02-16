@@ -82,6 +82,11 @@ namespace Game.RyftEntities
 
         public virtual void ApplyDamage(int amount)
         {
+            ApplyDamage(amount, null);
+        }
+
+        public virtual void ApplyDamage(int amount, Game.Core.IActor attacker)
+        {
             if (!IsAlive) return;
 
             var mitigated = Mathf.Max(0, amount);

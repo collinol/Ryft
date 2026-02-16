@@ -5,6 +5,7 @@ using Game.Abilities;
 using Game.Abilities.Enemy;
 using Game.UI;
 using Game.Combat;
+using Game.Ryfts;
 namespace Game.Enemies
 {
     public abstract class EnemyBase : MonoBehaviour, IActor
@@ -57,6 +58,7 @@ namespace Game.Enemies
             // Create and snap the bar (positioned below the enemy sprite, sized to fit within sprite width)
             hpBar = HealthBarView.Attach(transform, new Vector3(0f, -1.2f, 0f), new Vector2(0.5f, 0.08f));
             hpBar.Set(Health, TotalStats.maxHealth);
+            StatusEffectDisplay.Attach(transform, this, new Vector3(0f, -1.45f, 0f));
         }
 
         // IActor
@@ -81,12 +83,15 @@ namespace Game.Enemies
             Health = Mathf.Max(0, Health - mitigated);
             hpBar?.Set(Health, TotalStats.maxHealth);
 
+            // Raise Ryft damage dealt event (for gold per damage, chance heal on hit, etc.)
+            if (mitigated > 0 && attacker != null)
+                RyftCombatEvents.RaiseDamageDealt(attacker, this, mitigated);
+
             // Track kill if this damage killed the enemy
             if (wasAlive && !IsAlive)
             {
-                var tracker = CombatEventTracker.Instance;
-                // We don't know who dealt the damage here, so we'll need to track it differently
-                // This will be handled at the card level
+                // Raise Ryft enemy defeated event (for heal on kill, etc.)
+                RyftCombatEvents.RaiseEnemyDefeated(this);
 
                 // Hide sprite and health bar when enemy dies
                 OnDeath();
@@ -182,6 +187,9 @@ namespace Game.Enemies
         {
             Debug.Log($"[{DisplayName}] Died - hiding sprite and health bar");
 
+            // --- On-death status effects ---
+            ProcessOnDeathEffects();
+
             // Hide sprite
             var spriteRenderer = GetComponent<SpriteRenderer>();
             if (spriteRenderer)
@@ -200,6 +208,46 @@ namespace Game.Enemies
             if (fightController)
             {
                 fightController.CheckVictoryCondition();
+            }
+        }
+
+        private void ProcessOnDeathEffects()
+        {
+            if (StatusEffects == null) return;
+
+            var fightController = FindObjectOfType<Game.Combat.FightSceneController>();
+            if (fightController == null) return;
+
+            // Living Bomb: apply 3 Burning to all other alive enemies
+            if (StatusEffects.HasEffect(StatusEffectType.LivingBomb))
+            {
+                Debug.Log($"[LivingBomb] {DisplayName} explodes! Spreading Burning to other enemies.");
+                foreach (var enemy in fightController.AllAliveEnemies())
+                {
+                    if (enemy == this) continue;
+                    CombatBuffManager.ApplyDebuff(enemy, StatusEffectType.Burning, 3);
+                    Debug.Log($"[LivingBomb] Applied 3 Burning to {enemy.DisplayName}");
+                }
+            }
+
+            // Mass Suffering: transfer Agony stacks to a random alive enemy
+            if (StatusEffects.HasEffect(StatusEffectType.MassSuffering))
+            {
+                int agonyStacks = StatusEffects.GetStacks(StatusEffectType.Agony);
+                if (agonyStacks > 0)
+                {
+                    var candidates = new List<IActor>();
+                    foreach (var enemy in fightController.AllAliveEnemies())
+                    {
+                        if (enemy != this) candidates.Add(enemy);
+                    }
+                    if (candidates.Count > 0)
+                    {
+                        var target = candidates[Random.Range(0, candidates.Count)];
+                        CombatBuffManager.ApplyDebuff(target, StatusEffectType.Agony, agonyStacks);
+                        Debug.Log($"[MassSuffering] Transferred {agonyStacks} Agony from {DisplayName} to {target.DisplayName}");
+                    }
+                }
             }
         }
     }

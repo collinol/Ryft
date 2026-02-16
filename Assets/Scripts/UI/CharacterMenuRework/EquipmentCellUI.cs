@@ -7,7 +7,8 @@ using Game.Equipment;
 
 namespace Game.UI.Inventory
 {
-    public class EquipmentCellUI : MonoBehaviour, IPointerClickHandler
+    public class EquipmentCellUI : MonoBehaviour, IPointerClickHandler,
+        IPointerEnterHandler, IPointerExitHandler
     {
         [Header("Visuals")]
         [SerializeField] private Image background;                 // Grey.png
@@ -161,6 +162,18 @@ namespace Game.UI.Inventory
         public void OnPointerClick(PointerEventData eventData)
         {
             onClicked?.Invoke(this);
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            var item = GetItem();
+            if (item != null)
+                EquipmentTooltip.Instance?.Show(item);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            EquipmentTooltip.Instance?.Hide();
         }
 
 

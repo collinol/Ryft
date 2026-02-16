@@ -57,7 +57,7 @@ namespace Game.Shop
         // Price calculation helpers
         public static int GetCardPrice(CardRarity rarity)
         {
-            return rarity switch
+            int basePrice = rarity switch
             {
                 CardRarity.Common => 50,
                 CardRarity.Uncommon => 100,
@@ -66,11 +66,12 @@ namespace Game.Shop
                 CardRarity.Legendary => 400,
                 _ => 75
             };
+            return ApplyShopPriceModifiers(basePrice);
         }
 
         public static int GetEquipmentPrice(EquipmentRarity rarity)
         {
-            return rarity switch
+            int basePrice = rarity switch
             {
                 EquipmentRarity.Common => 75,
                 EquipmentRarity.Uncommon => 125,
@@ -79,6 +80,31 @@ namespace Game.Shop
                 EquipmentRarity.Legendary => 500,
                 _ => 100
             };
+
+            // Ryft passive: equipment cost modifiers
+            var mgr = Game.Ryfts.RyftEffectManager.Instance;
+            if (mgr != null)
+            {
+                float costPct = mgr.SumFloat(Game.Ryfts.BuiltInOp.EquipmentCostPercent)
+                              + mgr.SumFloat(Game.Ryfts.BuiltInOp.EquipmentCostIncreasePercent);
+                if (UnityEngine.Mathf.Abs(costPct) > 0.001f)
+                    basePrice = UnityEngine.Mathf.RoundToInt(basePrice * (1f + costPct));
+            }
+
+            return ApplyShopPriceModifiers(basePrice);
+        }
+
+        private static int ApplyShopPriceModifiers(int price)
+        {
+            var mgr = Game.Ryfts.RyftEffectManager.Instance;
+            if (mgr != null)
+            {
+                float shopPct = mgr.SumFloat(Game.Ryfts.BuiltInOp.ShopPricePercent)
+                              + mgr.SumFloat(Game.Ryfts.BuiltInOp.ShopPriceIncreasePercent);
+                if (UnityEngine.Mathf.Abs(shopPct) > 0.001f)
+                    price = UnityEngine.Mathf.RoundToInt(price * (1f + shopPct));
+            }
+            return UnityEngine.Mathf.Max(1, price);
         }
     }
 }

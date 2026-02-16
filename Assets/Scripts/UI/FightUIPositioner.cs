@@ -13,7 +13,7 @@ namespace Game.UI
     {
         [Header("Stats Label")]
         [SerializeField] private PlayerStatsLabel statsLabel;
-        [SerializeField] private Vector2 statsPosition = new Vector2(10, -10); // Top-left offset
+        [SerializeField] private Vector2 statsPosition = new Vector2(10, -30); // Top-left offset
         [SerializeField] private AnchorPreset statsAnchor = AnchorPreset.TopLeft;
 
         [Header("Exit Button")]
@@ -54,17 +54,7 @@ namespace Game.UI
         [ContextMenu("Position UI Elements")]
         public void PositionElements()
         {
-            // Position stats label at top-left
-            if (statsLabel != null)
-            {
-                var rt = statsLabel.GetComponent<RectTransform>();
-                if (rt != null)
-                {
-                    SetAnchor(rt, statsAnchor);
-                    rt.anchoredPosition = statsPosition;
-                    Debug.Log($"[FightUIPositioner] Stats label positioned at {statsAnchor}: {statsPosition}");
-                }
-            }
+            // Stats label now builds its own fixed panel — no repositioning needed
 
             // Position exit button at top-right
             if (exitButton != null)

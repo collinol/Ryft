@@ -87,7 +87,7 @@ namespace Game.Rewards
             var parts = new System.Collections.Generic.List<string>();
             if (equip.bonusStats.maxHealth != 0) parts.Add($"HP {equip.bonusStats.maxHealth:+#;-#;0}");
             if (equip.bonusStats.strength != 0) parts.Add($"STR {equip.bonusStats.strength:+#;-#;0}");
-            if (equip.bonusStats.mana != 0) parts.Add($"MANA {equip.bonusStats.mana:+#;-#;0}");
+            if (equip.bonusStats.intellect != 0) parts.Add($"INT {equip.bonusStats.intellect:+#;-#;0}");
             if (equip.bonusStats.engineering != 0) parts.Add($"ENG {equip.bonusStats.engineering:+#;-#;0}");
             return string.Join(" | ", parts);
         }

@@ -19,9 +19,11 @@ namespace Game.UI
         [SerializeField] private Image iconImage;
         [SerializeField] private TMP_Text labelText;
         [SerializeField] private TMP_Text costText;
+        [SerializeField] private TMP_Text descriptionText;
+        [SerializeField] private TMP_Text statText;
 
         [Header("Layout Dimensions")]
-        [SerializeField] private float iconSize = 60f;
+        [SerializeField] private float iconSize = 40f;
         [SerializeField] private float iconTopOffset = 10f;
         [SerializeField] private float labelBottomOffset = 10f;
         [SerializeField] private float costCornerOffset = 8f;
@@ -44,6 +46,10 @@ namespace Game.UI
                 labelText = transform.Find("Label")?.GetComponent<TMP_Text>();
             if (costText == null)
                 costText = transform.Find("CooldownText")?.GetComponent<TMP_Text>();
+            if (descriptionText == null)
+                descriptionText = transform.Find("DescriptionText")?.GetComponent<TMP_Text>();
+            if (statText == null)
+                statText = transform.Find("StatText")?.GetComponent<TMP_Text>();
 
             switch (layoutStyle)
             {
@@ -63,48 +69,13 @@ namespace Game.UI
 
         private void SetupStandardLayout()
         {
-            var cardRect = GetComponent<RectTransform>();
-            if (!cardRect) return;
+            // All positioning is now handled by AbilityButton.Awake()
+            // which runs before Start(). This just reinforces the mask.
+            if (!GetComponent<UnityEngine.UI.RectMask2D>())
+                gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
 
-            // Icon at top center
             if (iconImage)
-            {
-                var iconRect = iconImage.GetComponent<RectTransform>();
-                iconRect.anchorMin = new Vector2(0.5f, 1f);
-                iconRect.anchorMax = new Vector2(0.5f, 1f);
-                iconRect.pivot = new Vector2(0.5f, 1f);
-                iconRect.anchoredPosition = new Vector2(0, -iconTopOffset);
-                iconRect.sizeDelta = new Vector2(iconSize, iconSize);
-            }
-
-            // Label at bottom center
-            if (labelText)
-            {
-                var labelRect = labelText.GetComponent<RectTransform>();
-                labelRect.anchorMin = new Vector2(0f, 0f);
-                labelRect.anchorMax = new Vector2(1f, 0.4f); // Bottom 40% of card
-                labelRect.pivot = new Vector2(0.5f, 0f);
-                labelRect.anchoredPosition = new Vector2(0, labelBottomOffset);
-                labelRect.sizeDelta = Vector2.zero;
-
-                labelText.alignment = TextAlignmentOptions.Center;
-                labelText.enableWordWrapping = true;
-            }
-
-            // Cost at top-left corner
-            if (costText)
-            {
-                var costRect = costText.GetComponent<RectTransform>();
-                costRect.anchorMin = new Vector2(0f, 1f);
-                costRect.anchorMax = new Vector2(0f, 1f);
-                costRect.pivot = new Vector2(0f, 1f);
-                costRect.anchoredPosition = new Vector2(costCornerOffset, -costCornerOffset);
-                costRect.sizeDelta = new Vector2(30, 30);
-
-                costText.alignment = TextAlignmentOptions.Center;
-                costText.fontSize = 16;
-                costText.fontStyle = FontStyles.Bold;
-            }
+                iconImage.gameObject.SetActive(false);
         }
 
         private void SetupIconTopLayout()
@@ -199,6 +170,10 @@ namespace Game.UI
                     labelText = transform.Find("Label")?.GetComponent<TMP_Text>();
                 if (costText == null)
                     costText = transform.Find("CooldownText")?.GetComponent<TMP_Text>();
+                if (descriptionText == null)
+                    descriptionText = transform.Find("DescriptionText")?.GetComponent<TMP_Text>();
+                if (statText == null)
+                    statText = transform.Find("StatText")?.GetComponent<TMP_Text>();
             }
         }
 

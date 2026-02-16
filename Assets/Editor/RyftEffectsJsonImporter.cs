@@ -39,7 +39,7 @@ public static class RyftEffectsJsonImporter
 {
     private const string DefaultJsonPath   = "Assets/Config/ryft_effects.json";
     private const string EffectsFolder     = "Assets/Resources/Ryfts";
-    private const string DatabaseAssetPath = EffectsFolder + "/RyftEffectDatabase.asset";
+    private const string DatabaseAssetPath = "Assets/Resources/databases/RyftEffectDatabase.asset";
 
     [MenuItem("Tools/Ryfts/Import Effects from JSON...")]
     public static void ImportFromJsonMenu()

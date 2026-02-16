@@ -6,12 +6,12 @@ using Game.Player;
 namespace Game.Equipment.Effects
 {
     /// <summary>
-    /// Grants bonus mana at the start of each turn.
+    /// Grants bonus intellect at the start of each turn.
     /// </summary>
     public class ManaRegenEffect : IEquipmentEffect
     {
         private IActor owner;
-        private int manaPerTurn = 1;
+        private int intellectPerTurn = 1;
 
         public void Bind(IActor owner)
         {
@@ -24,10 +24,10 @@ namespace Game.Equipment.Effects
 
             if (owner is PlayerCharacter player)
             {
-                var gain = new Stats { mana = manaPerTurn };
+                var gain = new Stats { intellect = intellectPerTurn };
                 player.Gain(gain, allowExceedCap: true);
-                ctx?.Log($"Mana Regen: Gained {manaPerTurn} bonus mana.");
-                Debug.Log($"[ManaRegenEffect] Granted {manaPerTurn} mana to {owner.DisplayName}");
+                ctx?.Log($"Mana Regen: Gained {intellectPerTurn} bonus intellect.");
+                Debug.Log($"[ManaRegenEffect] Granted {intellectPerTurn} intellect to {owner.DisplayName}");
             }
         }
     }

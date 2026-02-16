@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using Game.Cards;
 using Game.Equipment;
+using Game.TimePortal;
 
 namespace Game.Rewards
 {
@@ -29,6 +30,9 @@ namespace Game.Rewards
         private List<CardDef> cardRewards = new();
         private List<EquipmentDef> equipmentRewards = new();
         private bool isEliteReward;
+        private bool isObligationElite;
+        private string obligationEquipId;       // The borrowed item ID player must select
+        private bool selectedObligationItem;    // Did the player select the borrowed item?
         private CardDatabase cardDb;
         private EquipmentDatabase equipDb;
 
@@ -39,11 +43,29 @@ namespace Game.Rewards
 
             // Determine reward type
             isEliteReward = MapSession.I != null && MapSession.I.IsEliteFight;
+            isObligationElite = MapSession.I != null && MapSession.I.IsObligationEliteFight;
+
+            // Find the borrowed item if this is an obligation elite
+            if (isObligationElite && MapSession.I?.TimePortal != null)
+            {
+                // The obligation elite on WorldLevel N is for the borrow from WorldLevel N-1
+                int prevWorld = MapSession.I.WorldLevel - 1;
+                var borrowed = MapSession.I.TimePortal.GetBorrowedGearForWorld(prevWorld);
+                if (borrowed != null)
+                {
+                    obligationEquipId = borrowed.equipmentId;
+                    Debug.Log($"[RewardScene] Obligation elite: player must select {obligationEquipId} to close the loop");
+                }
+            }
 
             // Update title
             if (titleText)
             {
-                titleText.text = isEliteReward ? "Elite Defeated! Choose Equipment:" : "Victory! Choose a Card:";
+                titleText.text = isObligationElite
+                    ? "Choose wisely... one item closes the time loop:"
+                    : isEliteReward
+                        ? "Elite Defeated! Choose Equipment:"
+                        : "Victory! Choose a Card:";
             }
 
             // Show gold
@@ -120,7 +142,32 @@ namespace Game.Rewards
             }
 
             var rng = new System.Random();
-            equipmentRewards = equipDb.RollRewards(equipmentChoiceCount, rng, EquipmentRarity.Uncommon);
+
+            if (isObligationElite && !string.IsNullOrEmpty(obligationEquipId))
+            {
+                // Obligation elite: one reward MUST be the borrowed item
+                var borrowedDef = equipDb.Get(obligationEquipId);
+                if (borrowedDef != null)
+                {
+                    // Roll the other rewards first (excluding the borrowed item)
+                    equipmentRewards = equipDb.RollRewards(equipmentChoiceCount - 1, rng, EquipmentRarity.Uncommon);
+                    equipmentRewards.Remove(borrowedDef); // Ensure no duplicate
+
+                    // Insert the borrowed item at a random position
+                    int insertIdx = rng.Next(0, equipmentRewards.Count + 1);
+                    equipmentRewards.Insert(insertIdx, borrowedDef);
+                    Debug.Log($"[RewardScene] Obligation elite rewards: inserted {borrowedDef.displayName} at index {insertIdx}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[RewardScene] Borrowed item {obligationEquipId} not found in database, using normal rewards");
+                    equipmentRewards = equipDb.RollRewards(equipmentChoiceCount, rng, EquipmentRarity.Uncommon);
+                }
+            }
+            else
+            {
+                equipmentRewards = equipDb.RollRewards(equipmentChoiceCount, rng, EquipmentRarity.Uncommon);
+            }
 
             DisplayEquipmentRewards();
         }
@@ -194,7 +241,11 @@ namespace Game.Rewards
             var titleGo = new GameObject("Title");
             titleGo.transform.SetParent(canvas.transform, false);
             var titleText = titleGo.AddComponent<TextMeshProUGUI>();
-            titleText.text = isEliteReward ? "ELITE DEFEATED!\nChoose Equipment:" : "VICTORY!\nChoose a Card:";
+            titleText.text = isObligationElite
+                ? "ELITE DEFEATED!\nOne item closes the time loop:"
+                : isEliteReward
+                    ? "ELITE DEFEATED!\nChoose Equipment:"
+                    : "VICTORY!\nChoose a Card:";
             titleText.fontSize = 42;
             titleText.alignment = TextAlignmentOptions.Center;
             titleText.color = isEliteReward ? new Color(1f, 0.8f, 0.2f) : new Color(0.5f, 1f, 0.5f);
@@ -367,6 +418,8 @@ namespace Game.Rewards
 
         private void CreateFallbackEquipmentButton(Transform parent, EquipmentDef equip, int index)
         {
+            bool isObligationItem = isObligationElite && equip.id == obligationEquipId;
+
             var go = new GameObject($"EquipReward_{index}");
             go.transform.SetParent(parent, false);
 
@@ -382,20 +435,23 @@ namespace Game.Rewards
             le.minHeight = 320;
 
             var img = go.AddComponent<Image>();
-            img.color = GetEquipRarityColor(equip.rarity);
+            // Highlight the obligation item with a golden border/tint
+            img.color = isObligationItem
+                ? new Color(0.8f, 0.65f, 0.1f) // Gold for the time loop item
+                : GetEquipRarityColor(equip.rarity);
 
             var btn = go.AddComponent<Button>();
             btn.onClick.AddListener(() => OnEquipmentSelected(equip));
 
-            // Rarity label at top
+            // Rarity / time loop label at top
             var rarityGo = new GameObject("Rarity");
             rarityGo.transform.SetParent(go.transform, false);
             var rarityText = rarityGo.AddComponent<TextMeshProUGUI>();
-            rarityText.text = equip.rarity.ToString().ToUpper();
+            rarityText.text = isObligationItem ? "TIME LOOP" : equip.rarity.ToString().ToUpper();
             rarityText.fontSize = 16;
             rarityText.alignment = TextAlignmentOptions.Center;
             rarityText.fontStyle = TMPro.FontStyles.Bold;
-            rarityText.color = new Color(1f, 1f, 1f, 0.8f);
+            rarityText.color = isObligationItem ? new Color(1f, 0.9f, 0.3f) : new Color(1f, 1f, 1f, 0.8f);
             var rarityRt = rarityGo.GetComponent<RectTransform>();
             rarityRt.anchorMin = new Vector2(0, 0.9f);
             rarityRt.anchorMax = new Vector2(1, 1f);
@@ -469,7 +525,7 @@ namespace Game.Rewards
             var parts = new List<string>();
             if (equip.bonusStats.maxHealth != 0) parts.Add($"HP: {equip.bonusStats.maxHealth:+#;-#;0}");
             if (equip.bonusStats.strength != 0) parts.Add($"STR: {equip.bonusStats.strength:+#;-#;0}");
-            if (equip.bonusStats.mana != 0) parts.Add($"MANA: {equip.bonusStats.mana:+#;-#;0}");
+            if (equip.bonusStats.intellect != 0) parts.Add($"INT: {equip.bonusStats.intellect:+#;-#;0}");
             if (equip.bonusStats.engineering != 0) parts.Add($"ENG: {equip.bonusStats.engineering:+#;-#;0}");
             return string.Join("\n", parts);
         }
@@ -522,13 +578,42 @@ namespace Game.Rewards
 
             Debug.Log($"[RewardScene] Player selected equipment: {equip.displayName}");
 
-            // Add to player's inventory
-            var equipMgr = EquipmentManager.Instance;
-            if (equipMgr != null)
+            // Check if this is the obligation item
+            if (isObligationElite && !string.IsNullOrEmpty(obligationEquipId))
             {
-                var instance = new EquipmentInstance(equip);
-                equipMgr.AddToInventory(instance);
-                Debug.Log($"[RewardScene] Added {equip.id} to inventory");
+                if (equip.id == obligationEquipId)
+                {
+                    // Player selected the borrowed item — loop closes!
+                    // They already have it from the Envelope, so don't add a duplicate
+                    selectedObligationItem = true;
+                    Debug.Log($"[RewardScene] Player selected the obligation item {equip.id} — time loop closed!");
+                }
+                else
+                {
+                    // Player selected a different item — loop fails
+                    selectedObligationItem = false;
+                    Debug.Log($"[RewardScene] Player selected {equip.id} instead of obligation item {obligationEquipId} — loop will fail!");
+
+                    // Add the selected (non-obligation) item to inventory
+                    var equipMgr = EquipmentManager.Instance;
+                    if (equipMgr != null)
+                    {
+                        var instance = new EquipmentInstance(equip);
+                        equipMgr.AddToInventory(instance);
+                        Debug.Log($"[RewardScene] Added {equip.id} to inventory");
+                    }
+                }
+            }
+            else
+            {
+                // Normal elite: just add to inventory
+                var equipMgr = EquipmentManager.Instance;
+                if (equipMgr != null)
+                {
+                    var instance = new EquipmentInstance(equip);
+                    equipMgr.AddToInventory(instance);
+                    Debug.Log($"[RewardScene] Added {equip.id} to inventory");
+                }
             }
 
             ReturnToMap();
@@ -537,6 +622,11 @@ namespace Game.Rewards
         private void OnSkipClicked()
         {
             Debug.Log("[RewardScene] Player skipped reward");
+            if (isObligationElite)
+            {
+                selectedObligationItem = false;
+                Debug.Log("[RewardScene] Skipped obligation elite reward — loop will fail!");
+            }
             ReturnToMap();
         }
 
@@ -545,13 +635,76 @@ namespace Game.Rewards
             // Clear pending reward flag
             if (MapSession.I != null)
             {
+                // Handle obligation elite outcome
+                if (isObligationElite)
+                {
+                    int prevWorld = MapSession.I.WorldLevel - 1;
+
+                    if (selectedObligationItem)
+                    {
+                        // Loop closed successfully — mark elite defeated, portal will appear
+                        MapSession.I.ObligationEliteDefeated = true;
+                        Debug.Log("[RewardScene] Time loop closed! Obligation elite defeated, TimePortal will appear.");
+                    }
+                    else
+                    {
+                        // Loop failed — remove the borrowed gear from player
+                        if (MapSession.I.TimePortal != null)
+                        {
+                            string removedId = MapSession.I.TimePortal.FailLoop(prevWorld);
+                            if (!string.IsNullOrEmpty(removedId))
+                            {
+                                RemoveBorrowedGearFromPlayer(removedId);
+                                Debug.Log($"[RewardScene] Time loop FAILED! Removed borrowed gear: {removedId}");
+                            }
+                        }
+                        // Still mark elite defeated so the map doesn't keep showing it
+                        MapSession.I.ObligationEliteDefeated = true;
+                    }
+
+                    MapSession.I.IsObligationEliteFight = false;
+                }
+
                 MapSession.I.PendingReward = false;
                 MapSession.I.IsEliteFight = false;
-                // Note: Don't auto-advance. Player returns to the node they fought at
-                // and manually chooses where to go next.
             }
 
             SceneManager.LoadScene("MapScene");
+        }
+
+        /// <summary>
+        /// Remove borrowed gear from player's equipment slots and inventory.
+        /// </summary>
+        private void RemoveBorrowedGearFromPlayer(string equipId)
+        {
+            var equipMgr = EquipmentManager.Instance;
+            if (equipMgr == null) return;
+
+            // Check all equipped slots
+            foreach (EquipmentSlot slot in System.Enum.GetValues(typeof(EquipmentSlot)))
+            {
+                if (slot == EquipmentSlot.None) continue;
+                var equipped = equipMgr.GetEquipped(slot);
+                if (equipped != null && equipped.def != null && equipped.def.id == equipId)
+                {
+                    equipMgr.Unequip(slot);
+                    equipMgr.RemoveFromInventory(equipped);
+                    Debug.Log($"[RewardScene] Removed borrowed gear from slot {slot}: {equipId}");
+                    return;
+                }
+            }
+
+            // Check inventory
+            var inventory = equipMgr.Inventory;
+            for (int i = inventory.Count - 1; i >= 0; i--)
+            {
+                if (inventory[i]?.def?.id == equipId)
+                {
+                    equipMgr.RemoveFromInventory(inventory[i]);
+                    Debug.Log($"[RewardScene] Removed borrowed gear from inventory: {equipId}");
+                    return;
+                }
+            }
         }
     }
 }

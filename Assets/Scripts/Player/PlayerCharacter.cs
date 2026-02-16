@@ -31,7 +31,7 @@ namespace Game.Player
                 {
                     maxHealth = BaseStats.maxHealth,
                     strength  = BaseStats.strength,
-                    mana        = BaseStats.mana,
+                    intellect        = BaseStats.intellect,
                     engineering = BaseStats.engineering
                 };
 
@@ -41,13 +41,13 @@ namespace Game.Player
                     // permanent
                     s.maxHealth += mgr.BonusMaxHp;
                     s.strength  += mgr.BonusStrength;
-                    s.mana  += mgr.BonusMana;
+                    s.intellect  += mgr.BonusIntellect;
                     s.engineering += mgr.BonusEngineering;
 
                     // temporary (battle-scoped)
                     s.maxHealth += mgr.TempMaxHp;
                     s.strength  += mgr.TempStrength;
-                    s.mana  += mgr.TempMana;
+                    s.intellect  += mgr.TempIntellect;
                     s.engineering   += mgr.TempEngineering;
                 }
 
@@ -58,9 +58,38 @@ namespace Game.Player
                 if (equipment)
                 {
                     var eq = equipment.GetEquipmentStatBonus();
+
+                    // Ryft passive: equipment stat bonus/penalty percent
+                    if (mgr)
+                    {
+                        float statBonusPct = mgr.SumFloat(Game.Ryfts.BuiltInOp.EquipmentStatBonusPercent);
+                        if (Mathf.Abs(statBonusPct) > 0.001f)
+                        {
+                            float mult = 1f + statBonusPct;
+                            eq = new Stats
+                            {
+                                maxHealth   = Mathf.RoundToInt(eq.maxHealth * mult),
+                                strength    = Mathf.RoundToInt(eq.strength * mult),
+                                intellect   = Mathf.RoundToInt(eq.intellect * mult),
+                                engineering = Mathf.RoundToInt(eq.engineering * mult)
+                            };
+                        }
+                    }
+
                     s = s + eq;
-                    Debug.Log($"[PlayerCharacter] Equipment bonus: HP+{eq.maxHealth}, STR+{eq.strength}, MANA+{eq.mana}, ENG+{eq.engineering}");
+                    Debug.Log($"[PlayerCharacter] Equipment bonus: HP+{eq.maxHealth}, STR+{eq.strength}, INT+{eq.intellect}, ENG+{eq.engineering}");
                 }
+
+                // Ryft passive: max HP per equipped piece
+                if (mgr)
+                {
+                    int pieceCount = mgr.GetEquippedPieceCount();
+                    int hpPerPiece = mgr.SumInt(Game.Ryfts.BuiltInOp.EquipmentMaxHpPerPiece);
+                    int hpLossPerPiece = mgr.SumInt(Game.Ryfts.BuiltInOp.EquipmentReduceMaxHpPerPiece);
+                    s.maxHealth += pieceCount * (hpPerPiece - hpLossPerPiece);
+                    s.maxHealth = Mathf.Max(1, s.maxHealth);
+                }
+
                 return s;
             }
         }
@@ -76,8 +105,8 @@ namespace Game.Player
 
         void Awake()
         {
-            baseStats = new Stats { maxHealth = 30, strength = 1, mana = 1, engineering = 100};
-            currentTurnStats = new Stats { maxHealth = 30,  strength = 1, mana = 1, engineering = 100};
+            baseStats = new Stats { maxHealth = 30, strength = 1, intellect = 1, engineering = 1};
+            currentTurnStats = new Stats { maxHealth = 30,  strength = 1, intellect = 1, engineering = 1};
 
             // Initialize status effects
             StatusEffects = new StatusEffectManager(this);
@@ -89,6 +118,7 @@ namespace Game.Player
             Health = Mathf.Max(1, TotalStats.maxHealth);
             hpBar = HealthBarView.Attach(transform, new Vector3(0f, -1.2f, 0f), new Vector2(0.5f, 0.08f));
             hpBar.Set(Health, TotalStats.maxHealth);
+            StatusEffectDisplay.Attach(transform, this, new Vector3(0f, -1.45f, 0f));
             RefreshTurnStats();
         }
         void OnEnable()  { RyftCombatEvents.OnResourceRefund += HandleResourceRefund; }
@@ -113,9 +143,9 @@ namespace Game.Player
                 strength  = allowExceedCap
                     ? currentTurnStats.strength + Math.Max(0, gain.strength)
                     : Mathf.Min(cap.strength, currentTurnStats.strength + Math.Max(0, gain.strength)),
-                mana = allowExceedCap
-                    ? currentTurnStats.mana + Math.Max(0, gain.mana)
-                    : Mathf.Min(cap.mana, currentTurnStats.mana + Math.Max(0, gain.mana)),
+                intellect = allowExceedCap
+                    ? currentTurnStats.intellect + Math.Max(0, gain.intellect)
+                    : Mathf.Min(cap.intellect, currentTurnStats.intellect + Math.Max(0, gain.intellect)),
                 engineering = allowExceedCap
                     ? currentTurnStats.engineering + Math.Max(0, gain.engineering)
                     : Mathf.Min(cap.engineering, currentTurnStats.engineering + Math.Max(0, gain.engineering)),
@@ -193,7 +223,7 @@ namespace Game.Player
             {
                 maxHealth = t.maxHealth, // not spendable, but kept for completeness
                 strength  = t.strength,
-                mana  = t.mana,
+                intellect  = t.intellect,
                 engineering   = t.engineering
             };
             OnTurnStatsChanged?.Invoke(currentTurnStats);
@@ -204,7 +234,7 @@ namespace Game.Player
         {
             // ignore maxHealth in costs (not a spendable resource)
             return currentTurnStats.strength    >= Mathf.Max(0, cost.strength)
-            && currentTurnStats.mana        >= Mathf.Max(0, cost.mana)
+            && currentTurnStats.intellect        >= Mathf.Max(0, cost.intellect)
             && currentTurnStats.engineering >= Mathf.Max(0, cost.engineering);
         }
 
@@ -216,7 +246,7 @@ namespace Game.Player
             {
                 maxHealth   = currentTurnStats.maxHealth,
                 strength    = Mathf.Max(0, currentTurnStats.strength    - Mathf.Max(0, cost.strength)),
-                mana        = Mathf.Max(0, currentTurnStats.mana        - Mathf.Max(0, cost.mana)),        // NEW
+                intellect        = Mathf.Max(0, currentTurnStats.intellect        - Mathf.Max(0, cost.intellect)),        // NEW
                 engineering = Mathf.Max(0, currentTurnStats.engineering - Mathf.Max(0, cost.engineering)),
             };
 

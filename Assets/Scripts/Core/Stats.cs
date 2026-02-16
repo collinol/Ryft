@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Core
 {
@@ -8,16 +9,17 @@ namespace Game.Core
     {
         public int maxHealth;
         public int strength;
-        public int mana;
+        [FormerlySerializedAs("mana")]
+        public int intellect;
         public int engineering;
 
-        public static Stats Zero => new Stats { maxHealth = 0, strength = 0, mana = 0, engineering = 0 };
+        public static Stats Zero => new Stats { maxHealth = 0, strength = 0, intellect = 0, engineering = 0 };
 
         public static Stats operator +(Stats a, Stats b) => new Stats
         {
             maxHealth   = a.maxHealth   + b.maxHealth,
             strength    = a.strength    + b.strength,
-            mana        = a.mana        + b.mana,
+            intellect   = a.intellect   + b.intellect,
             engineering = a.engineering + b.engineering
         };
     }
@@ -25,7 +27,7 @@ namespace Game.Core
 
 namespace Game.Core
 {
-    public enum StatField { Strength, Mana, Engineering, MaxHealth, Energy }
+    public enum StatField { Strength, Intellect, Engineering, MaxHealth, Energy }
 
     public static class StatsUtil
     {
@@ -33,7 +35,7 @@ namespace Game.Core
         {
             StatField.MaxHealth   => s.maxHealth,
             StatField.Strength    => s.strength,
-            StatField.Mana        => s.mana,
+            StatField.Intellect        => s.intellect,
             StatField.Engineering => s.engineering,
             // Energy is a battle resource (not stored in Stats)
             _ => 0
@@ -46,7 +48,7 @@ namespace Game.Core
             {
                 case StatField.MaxHealth:   s.maxHealth   = v; break;
                 case StatField.Strength:    s.strength    = v; break;
-                case StatField.Mana:        s.mana        = v; break;
+                case StatField.Intellect:        s.intellect        = v; break;
                 case StatField.Engineering: s.engineering = v; break;
                 // Energy is not stored in Stats
             }

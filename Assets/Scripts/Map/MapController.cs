@@ -65,6 +65,10 @@ public class MapController : MonoBehaviour
     // Prevents double-resolving the same ryft node
     private readonly HashSet<MapNode> _resolvedRyfts = new HashSet<MapNode>();
 
+    // Deterministic special node placement tracking
+    private bool _envelopePlaced = false;
+    private bool _timePortalPlaced = false;
+
 
     // ─────────────────────────────────────────────────────────────────────────────
     void OnValidate()
@@ -102,6 +106,26 @@ public class MapController : MonoBehaviour
 
         ValidateRiftSprites();
 
+        // New map after boss victory: reset and generate fresh
+        if (MapSession.I != null && MapSession.I.NewMapPending)
+        {
+            Debug.Log($"[Map] New map pending! WorldLevel {MapSession.I.WorldLevel} -> {MapSession.I.WorldLevel + 1}");
+            MapSession.I.ClosedRiftCount = 0;
+            MapSession.I.BossFightPending = false;
+            MapSession.I.IsBossFight = false;
+            MapSession.I.NewMapPending = false;
+            MapSession.I.WorldLevel++;
+            MapSession.I.Saved = null;
+            MapSession.I.ObligationEliteLevel = -1;
+            MapSession.I.ObligationEliteIndex = -1;
+            MapSession.I.ObligationEliteDefeated = false;
+            MapSession.I.IsObligationEliteFight = false;
+            _envelopePlaced = false;
+            _timePortalPlaced = false;
+            _resolvedRyfts.Clear();
+            // Fall through to fresh generation below
+        }
+
         if (MapSession.I != null && MapSession.I.Saved != null)
         {
             RestoreState(MapSession.I.Saved);
@@ -109,9 +133,8 @@ public class MapController : MonoBehaviour
             // Check for pending portal fight outcome and resolve it
             ResolvePortalFightOutcome();
 
-            // Note: We don't auto-advance after fights. The player clicked a node to fight,
-            // that node became the current node, and after winning they return to that node
-            // and can manually choose where to go next.
+            // If obligation elite was defeated, dynamically place the TimePortal node
+            TryRevealTimePortalNode();
 
             CenterCameraNow();
             BuildCurrentMarker();
@@ -249,6 +272,187 @@ public class MapController : MonoBehaviour
             currentNode.Discover();
             currentNode.SetReachableSilently(true); // starting node reachable
         }
+
+        // Place deterministic Envelope and TimePortal nodes on fresh generation
+        PlaceSpecialNodes();
+    }
+
+    /// <summary>
+    /// Deterministically place one Envelope and (if WorldLevel > 0) one TimePortal
+    /// on the current map. Only runs once per map generation.
+    /// </summary>
+    void PlaceSpecialNodes()
+    {
+        if (_envelopePlaced) return; // already placed for this map
+
+        int worldLevel = MapSession.I != null ? MapSession.I.WorldLevel : 0;
+
+        // Collect eligible rows (1 through Count-1, skip row 0 which is the start)
+        var eligibleRows = new List<int>();
+        for (int l = 1; l < levels.Count && l <= 4; l++)
+            eligibleRows.Add(l);
+
+        if (eligibleRows.Count == 0) return;
+
+        // Place Envelope on a random eligible row (never override Rift/Envelope/TimePortal nodes)
+        MapNode envelopeNode = null;
+        var shuffledRows = new List<int>(eligibleRows);
+        ShuffleList(shuffledRows);
+        foreach (int rowIdx in shuffledRows)
+        {
+            var row = levels[rowIdx];
+            for (int i = 0; i < row.Count; i++)
+            {
+                var candidate = row[i];
+                if (candidate.type != MapNodeType.Rift &&
+                    candidate.type != MapNodeType.Envelope &&
+                    candidate.type != MapNodeType.TimePortal)
+                {
+                    envelopeNode = candidate;
+                    break;
+                }
+            }
+            if (envelopeNode != null) break;
+        }
+
+        if (envelopeNode == null)
+        {
+            Debug.LogWarning("[Map] PlaceSpecialNodes: No eligible node found for Envelope");
+            return;
+        }
+
+        envelopeNode.type = MapNodeType.Envelope;
+        var envelopeSprite = GetSprite(MapNodeType.Envelope);
+        envelopeNode.Init(MapNodeType.Envelope, envelopeSprite, this);
+        envelopeNode.RefreshVisualSize();
+        _envelopePlaced = true;
+
+        Debug.Log($"[Map] Placed Envelope at level {FindLevelOf(envelopeNode)}, node {FindIndexInLevel(envelopeNode)}");
+
+        // On maps after the first: place a highlighted obligation elite
+        // (TimePortal only appears AFTER the player defeats this elite)
+        bool hasPendingObligations = MapSession.I?.TimePortal?.HasPendingObligations() == true;
+        if (worldLevel > 0 && !_timePortalPlaced && hasPendingObligations)
+        {
+            // Check if obligation elite is already defeated (e.g. restoring from save)
+            bool eliteDefeated = MapSession.I != null && MapSession.I.ObligationEliteDefeated;
+
+            if (!eliteDefeated)
+            {
+                // Place obligation elite node
+                MapNode eliteNode = null;
+                foreach (int rowIdx in shuffledRows)
+                {
+                    var row = levels[rowIdx];
+                    for (int i = 0; i < row.Count; i++)
+                    {
+                        var candidate = row[i];
+                        if (candidate != envelopeNode &&
+                            candidate.type != MapNodeType.Rift &&
+                            candidate.type != MapNodeType.Envelope &&
+                            candidate.type != MapNodeType.TimePortal)
+                        {
+                            eliteNode = candidate;
+                            break;
+                        }
+                    }
+                    if (eliteNode != null) break;
+                }
+
+                if (eliteNode != null)
+                {
+                    eliteNode.type = MapNodeType.Elite;
+                    var eliteSprite = GetSprite(MapNodeType.Elite);
+                    eliteNode.Init(MapNodeType.Elite, eliteSprite, this);
+                    eliteNode.isObligationElite = true;
+                    eliteNode.RefreshVisualSize();
+
+                    // Store position in MapSession for tracking
+                    if (MapSession.I != null)
+                    {
+                        MapSession.I.ObligationEliteLevel = FindLevelOf(eliteNode);
+                        MapSession.I.ObligationEliteIndex = FindIndexInLevel(eliteNode);
+                    }
+
+                    // Mark as placed so we don't re-run on map extension
+                    _timePortalPlaced = true;
+
+                    Debug.Log($"[Map] Placed Obligation Elite at level {FindLevelOf(eliteNode)}, node {FindIndexInLevel(eliteNode)}");
+                }
+                else
+                {
+                    Debug.LogWarning("[Map] PlaceSpecialNodes: No eligible node found for Obligation Elite");
+                }
+            }
+            else
+            {
+                // Elite already defeated — TimePortal will be placed by RevealTimePortalNode()
+                _timePortalPlaced = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dynamically place a TimePortal node after the obligation elite is defeated.
+    /// Called from Start() after RestoreState.
+    /// </summary>
+    void TryRevealTimePortalNode()
+    {
+        if (MapSession.I == null) return;
+        if (!MapSession.I.ObligationEliteDefeated) return;
+        if (MapSession.I.WorldLevel <= 0) return;
+
+        // Check if a TimePortal already exists on the map
+        foreach (var row in levels)
+            foreach (var n in row)
+                if (n.type == MapNodeType.TimePortal) return; // already placed
+
+        // Find a suitable node ahead of the current position
+        int currentLevelIdx = FindLevelOf(currentNode);
+        MapNode portalNode = null;
+
+        for (int l = currentLevelIdx + 1; l < levels.Count; l++)
+        {
+            foreach (var n in levels[l])
+            {
+                if (!n.visited &&
+                    n.type != MapNodeType.Rift &&
+                    n.type != MapNodeType.Envelope &&
+                    n.type != MapNodeType.TimePortal &&
+                    !n.isObligationElite)
+                {
+                    portalNode = n;
+                    break;
+                }
+            }
+            if (portalNode != null) break;
+        }
+
+        if (portalNode == null)
+        {
+            Debug.LogWarning("[Map] TryRevealTimePortalNode: No eligible node found ahead of player");
+            return;
+        }
+
+        portalNode.type = MapNodeType.TimePortal;
+        var portalSprite = GetSprite(MapNodeType.TimePortal);
+        portalNode.Init(MapNodeType.TimePortal, portalSprite, this);
+        portalNode.RefreshVisualSize();
+        _timePortalPlaced = true;
+
+        Debug.Log($"[Map] Revealed TimePortal at level {FindLevelOf(portalNode)}, node {FindIndexInLevel(portalNode)} (after obligation elite defeated)");
+
+        // Save the updated state so the TimePortal persists
+        MapSession.I.Saved = BuildState();
+    }
+
+    static void ShuffleList<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
     }
 
     void Connect(MapNode from, MapNode to, int fromLevel, int toLevel)
@@ -271,10 +475,7 @@ public class MapController : MonoBehaviour
 
     MapNodeType RandomNodeType()
     {
-        // TimePortal appears less frequently (1 in 10 chance)
-        if (UnityEngine.Random.value < 0.1f)
-            return MapNodeType.TimePortal;
-
+        // Envelope and TimePortal are placed deterministically, not randomly
         var pool = new[] { MapNodeType.Enemy, MapNodeType.Shop, MapNodeType.Rest, MapNodeType.Elite, MapNodeType.Rift };
         return pool[UnityEngine.Random.Range(0, pool.Length)];
     }
@@ -410,19 +611,55 @@ public class MapController : MonoBehaviour
             return;
         }
 
-        int idx = UnityEngine.Random.Range(0, matches.Count);
-        var chosen = matches[idx];
+        var chosen = PickWeightedRandom(matches);
 
         Debug.Log($"[Ryft][Map] {verb} {color}: picked {chosen.id} ({chosen.displayName}) [{chosen.color}/{chosen.polarity}]");
 
         var mgr = RyftEffectManager.Ensure();
         mgr.OnRyftOutcome(chosen);
 
+        // Track closed rifts for boss progression
+        if (closed && MapSession.I != null)
+        {
+            MapSession.I.ClosedRiftCount++;
+            Debug.Log($"[Map] ClosedRiftCount = {MapSession.I.ClosedRiftCount}");
+            if (MapSession.I.ClosedRiftCount >= 3)
+            {
+                MapSession.I.BossFightPending = true;
+                Debug.Log("[Map] Boss fight pending! 3 rifts closed.");
+            }
+        }
+
         // mark resolved first, then log the active list
         _resolvedRyfts.Add(ryftNode);
 
         // optional: quick snapshot of active effects
         mgr.DebugLogActiveEffects("[Ryft][Map->Mgr]");
+    }
+
+    private static float RarityWeight(RyftRarity r) => r switch
+    {
+        RyftRarity.Common    => 10f,
+        RyftRarity.Uncommon  => 6f,
+        RyftRarity.Rare      => 3f,
+        RyftRarity.Epic      => 1f,
+        RyftRarity.Legendary => 0.5f,
+        _ => 10f
+    };
+
+    private static RyftEffectDef PickWeightedRandom(List<RyftEffectDef> candidates)
+    {
+        if (candidates.Count == 1) return candidates[0];
+        float total = 0f;
+        foreach (var c in candidates) total += RarityWeight(c.rarity);
+        float roll = UnityEngine.Random.Range(0f, total);
+        float cum = 0f;
+        foreach (var c in candidates)
+        {
+            cum += RarityWeight(c.rarity);
+            if (roll < cum) return c;
+        }
+        return candidates[candidates.Count - 1];
     }
 
     /// <summary>
@@ -523,6 +760,17 @@ public class MapController : MonoBehaviour
 
         // Update keyboard navigation
         FocusCurrentOrChildren();
+
+        // Check if boss fight should trigger after resolving rift
+        if (MapSession.I != null && MapSession.I.BossFightPending)
+        {
+            Debug.Log("[Map] Boss fight triggered after rift resolution!");
+            MapSession.I.Saved = BuildState();
+            MapSession.I.IsEliteFight = true;
+            MapSession.I.IsBossFight = true;
+            UnityEngine.SceneManagement.SceneManager.LoadScene("FightScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+            return;
+        }
     }
 
     /// <summary>
@@ -782,6 +1030,16 @@ public class MapController : MonoBehaviour
             var t = focusLR.transform;
             t.SetParent(focusedNode.transform, false);
             t.localPosition = Vector3.zero;
+
+            // Compensate for node's localScale so the ring stays a consistent
+            // world-space size (portal/rift sprites get scaled down heavily by
+            // NormalizeSize, which would otherwise shrink the ring to a dot).
+            var ns = focusedNode.transform.localScale;
+            t.localScale = new Vector3(
+                ns.x != 0f ? 1f / ns.x : 1f,
+                ns.y != 0f ? 1f / ns.y : 1f,
+                1f);
+
             focusLR.enabled = true;
         }
         else if (focusLR)
@@ -1023,7 +1281,8 @@ public class MapController : MonoBehaviour
                     visited    = n.visited,
                     isRift     = (n.type == MapNodeType.Rift),
                     ryftColor  = n.ryftColor,
-                    riftState  = n.riftState
+                    riftState  = n.riftState,
+                    isObligationElite = n.isObligationElite
                 };
 
                 // connections
@@ -1082,6 +1341,9 @@ public class MapController : MonoBehaviour
                     node.SetRiftState(ns.riftState);
                 }
 
+                // restore obligation elite flag
+                node.isObligationElite = ns.isObligationElite;
+
                 // restore flags (do reachability visually, collider later)
                 node.isDiscovered = ns.discovered;
                 node.isReachable  = ns.reachable;
@@ -1118,6 +1380,16 @@ public class MapController : MonoBehaviour
 
         // current node
         currentNode = levels[st.currentLevel][st.currentIndex];
+
+        // Scan restored nodes for existing special nodes to set placement flags
+        // (prevents PlaceSpecialNodes from overwriting nodes on map extension)
+        foreach (var row in levels)
+            foreach (var n in row)
+            {
+                if (n.type == MapNodeType.Envelope) _envelopePlaced = true;
+                if (n.type == MapNodeType.TimePortal) _timePortalPlaced = true;
+                if (n.isObligationElite) _timePortalPlaced = true; // obligation elite counts
+            }
 
         // camera
         if (cam) cam.transform.position = new Vector3(st.camX, st.camY, cam.transform.position.z);

@@ -22,6 +22,9 @@ public class MapNode : MonoBehaviour
     public RyftColor ryftColor;
     public RiftState riftState = RiftState.Open;
 
+    [Header("Obligation Elite")]
+    public bool isObligationElite = false;
+
     [Header("Visual")]
     [Tooltip("Target max dimension (world units) for the sprite after auto-scaling.")]
     public float targetWorldSize = 0.9f;
@@ -163,8 +166,11 @@ public class MapNode : MonoBehaviour
 
         if (col is CircleCollider2D cc)
         {
+            // w,h are in world units but CircleCollider2D.radius is in local space,
+            // so divide by localScale to keep the intended world-space hitbox size.
             float r = Mathf.Max(w, h) * 0.5f;
-            cc.radius = r;
+            float s = Mathf.Max(Mathf.Abs(transform.localScale.x), Mathf.Abs(transform.localScale.y));
+            cc.radius = s > 0.0001f ? r / s : r;
             cc.offset = Vector2.zero;
             cc.isTrigger = false;
         }
@@ -242,6 +248,12 @@ public class MapNode : MonoBehaviour
         if (!sr) sr = GetComponent<SpriteRenderer>();
         var c = sr.color;
 
+        // Obligation elite gets a golden tint to stand out
+        if (isObligationElite && !visited)
+        {
+            c = new Color(1f, 0.85f, 0.2f); // Gold tint
+        }
+
         c.a = isDiscovered ? 1f : 0f;
         if (isDiscovered && !isReachable) c.a *= 0.6f;
         if (visited) c.a *= visitedAlpha;
@@ -302,6 +314,7 @@ public class MapNode : MonoBehaviour
             var st = controller.BuildState();
             MapSession.I.Saved = st;
             MapSession.I.IsEliteFight = (type == MapNodeType.Elite);
+            MapSession.I.IsObligationEliteFight = isObligationElite;
 
             MarkVisited();
             SceneManager.LoadScene("FightScene", LoadSceneMode.Single);
@@ -342,6 +355,24 @@ public class MapNode : MonoBehaviour
             return;
         }
 
+        if (type == MapNodeType.Envelope)
+        {
+            controller?.OnNodeChosen(this);
+
+            if (MapSession.I == null)
+            {
+                new GameObject("MapSession (auto)").AddComponent<MapSession>();
+            }
+
+            MapSession.I.PortalMode = MapSession.TimePortalMode.Receive;
+            var st = controller.BuildState();
+            MapSession.I.Saved = st;
+
+            MarkVisited();
+            SceneManager.LoadScene("TimePortalScene", LoadSceneMode.Single);
+            return;
+        }
+
         if (type == MapNodeType.TimePortal)
         {
             controller?.OnNodeChosen(this);
@@ -351,6 +382,7 @@ public class MapNode : MonoBehaviour
                 new GameObject("MapSession (auto)").AddComponent<MapSession>();
             }
 
+            MapSession.I.PortalMode = MapSession.TimePortalMode.Return;
             var st = controller.BuildState();
             MapSession.I.Saved = st;
 

@@ -62,6 +62,16 @@ namespace Game.Combat
         private CardCooldownManager cooldownManager;
         private GadgetManager gadgetManager;
 
+        // New combat systems
+        private StanceManager stanceManager;
+        private OverclockManager overclockManager;
+        private DeviceManager deviceManager;
+        private WeaponInstallationManager weaponManager;
+        private bool extraTurnQueued = false;
+        private int attackCardsPlayedThisTurn = 0;
+        private int protectionLostLastTurn = 0;
+        private int delayedJusticeDamage = 0;
+
         void Awake()
         {
             Instance = this;
@@ -82,9 +92,6 @@ namespace Game.Combat
             if (!cardDb) cardDb = CardDatabase.Load();
             if (!uiCanvas) uiCanvas = FindObjectOfType<Canvas>();
             if (!turnBanner && uiCanvas) turnBanner = TurnBannerUI.Ensure(uiCanvas);
-
-            // Initialize card tooltip
-            if (uiCanvas) Game.UI.CardTooltip.Ensure(uiCanvas);
 
             // Initialize combat systems
             combatTracker = CombatEventTracker.Instance;
@@ -128,6 +135,35 @@ namespace Game.Combat
             {
                 var go = new GameObject("CardVFXManager");
                 go.AddComponent<CardVFXManager>();
+            }
+
+            // Initialize new combat systems
+            stanceManager = StanceManager.Instance;
+            if (!stanceManager)
+            {
+                var go = new GameObject("StanceManager");
+                stanceManager = go.AddComponent<StanceManager>();
+            }
+
+            overclockManager = OverclockManager.Instance;
+            if (!overclockManager)
+            {
+                var go = new GameObject("OverclockManager");
+                overclockManager = go.AddComponent<OverclockManager>();
+            }
+
+            deviceManager = DeviceManager.Instance;
+            if (!deviceManager)
+            {
+                var go = new GameObject("DeviceManager");
+                deviceManager = go.AddComponent<DeviceManager>();
+            }
+
+            weaponManager = WeaponInstallationManager.Instance;
+            if (!weaponManager)
+            {
+                var go = new GameObject("WeaponInstallationManager");
+                weaponManager = go.AddComponent<WeaponInstallationManager>();
             }
         }
 
@@ -214,6 +250,10 @@ namespace Game.Combat
 
             // Start first player turn
             StartPlayerTurn();
+
+            // Fire Ryft OnBattleStart triggers (protection, weakness, extra cards, etc.)
+            // Must happen AFTER StartPlayerTurn so opening hand exists for effects like CopyHighCost
+            RyftCombatEvents.RaiseBattleStart(ctx);
         }
 
         // ========== Turn flow ==========
@@ -222,6 +262,11 @@ namespace Game.Combat
         {
             // Reset combat trackers
             if (combatTracker) combatTracker.ResetTurnCounters();
+            attackCardsPlayedThisTurn = 0;
+            extraTurnQueued = false;
+
+            // Track protection lost (for Revenge card)
+            int protBefore = CombatBuffManager.GetProtection(player);
 
             // Tick status effects
             if (player) player.StatusEffects?.TickAllEffects();
@@ -233,20 +278,48 @@ namespace Game.Combat
                 }
             }
 
+            protectionLostLastTurn = Mathf.Max(0, protBefore - CombatBuffManager.GetProtection(player));
+
             // Tick cooldowns
             if (cooldownManager) cooldownManager.TickAllCooldowns();
 
             // Tick gadgets
             if (gadgetManager) gadgetManager.TickAllGadgets();
 
+            // Tick stance
+            if (stanceManager) stanceManager.TickTurnStart();
+
+            // Tick devices
+            if (deviceManager) deviceManager.TickTurnStart(ctx);
+
+            // Creeping Cold: apply 2 Frozen to all enemies
+            if (player?.StatusEffects != null && player.StatusEffects.HasEffect(StatusEffectType.CreepingCold))
+            {
+                if (enemies != null)
+                {
+                    foreach (var enemy in enemies.Where(e => e && e.IsAlive))
+                        CombatBuffManager.ApplyDebuff(enemy, StatusEffectType.Frozen, 2);
+                    Debug.Log("[CreepingCold] Applied 2 Frozen to all enemies");
+                }
+            }
+
             SetEnergy(MaxEnergy);
             player.RefreshTurnStats();
 
+            // Fire Ryft OnTurnStart triggers (e.g. +energy per gear, draw on turn start)
+            // Must happen AFTER SetEnergy so bonus energy is added on top of base
+            RyftCombatEvents.RaiseTurnStart();
+
             int cap = EffectiveMaxHandSize();
+
+            // Ryft passive query: initial draw reduction (opening hand only) & draw reduction
+            var ryftMgr = Game.Ryfts.RyftEffectManager.Instance;
 
             if (!dealtOpeningHand)
             {
-                DrawToHandSize(cap);      // opening hand: fill to max slots
+                int initReduce = ryftMgr != null ? ryftMgr.SumInt(Game.Ryfts.BuiltInOp.InitialDrawReduction) : 0;
+                int adjustedCap = Mathf.Max(1, cap - initReduce);
+                DrawToHandSize(adjustedCap);      // opening hand: fill to max slots
                 dealtOpeningHand = true;
             }
             else
@@ -257,7 +330,10 @@ namespace Game.Combat
                     RefreshHandUI();
                     return;
                 }
-                Draw(1); // normal turn: draw 1 if there’s space
+                int drawCount = 1;
+                int drawReduce = ryftMgr != null ? ryftMgr.SumInt(Game.Ryfts.BuiltInOp.DrawReduction) : 0;
+                drawCount = Mathf.Max(0, drawCount - drawReduce);
+                if (drawCount > 0) Draw(drawCount); // normal turn: draw if not fully reduced
             }
 
             RefreshHandUI();
@@ -338,6 +414,37 @@ namespace Game.Combat
             // Trigger end-of-turn effects
             endOfTurnEffects?.TriggerPlayerTurnEnd();
 
+            // Combat Stimulants damage
+            if (player?.StatusEffects != null && player.StatusEffects.HasEffect(StatusEffectType.CombatStimDamage))
+            {
+                player.ApplyDamage(3);
+                player.StatusEffects.RemoveEffect(StatusEffectType.CombatStimDamage);
+            }
+
+            // End-of-turn debuff ticks for enemies
+            if (enemies != null)
+            {
+                foreach (var enemy in enemies.Where(e => e && e.IsAlive))
+                    enemy.StatusEffects?.TickEndOfTurn();
+            }
+
+            // Player end-of-turn ticks
+            player?.StatusEffects?.TickEndOfTurn();
+
+            // Clear protection at end of turn
+            CombatBuffManager.ClearProtection(player);
+
+            // Clear one-turn effects
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.DamageImmune);
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.ReflectAll);
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.CannotAttack);
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.NextAttackBonus);
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.NextAttackDouble);
+            player?.StatusEffects?.RemoveEffect(StatusEffectType.AnalyzeWeakness);
+
+            // Fire Ryft OnTurnEnd triggers (e.g. HealOnTurnEnd, DamageOnTurnEnd)
+            RyftCombatEvents.RaiseTurnEnd();
+
             // DO NOT discard hand. Just go enemy turn.
             if (turnBanner) turnBanner.Show("Enemy Turn");
             StartCoroutine(EnemyTurnThenBackToPlayer());
@@ -371,9 +478,21 @@ namespace Game.Combat
 
             Debug.Log("[FightSceneController] Enemy turn complete, returning to player turn");
 
+            // Check victory before continuing
+            CheckVictoryCondition();
+
             // Back to player
             if (turnBanner) turnBanner.Show("Player Turn");
             StartPlayerTurn();
+
+            // Extra turn check (from Rewind, Overclock, Time Stop)
+            if (extraTurnQueued)
+            {
+                extraTurnQueued = false;
+                Debug.Log("[ExtraTurn] Taking extra turn!");
+                // Extra turn just means we skip the next enemy turn
+                // Already started a player turn above, so we're good
+            }
         }
 
         private void SetEnergy(int value)
@@ -517,6 +636,11 @@ namespace Game.Combat
             }
         }
 
+        /// <summary>
+        /// Public accessor for card runtimes — used by UI to get display values.
+        /// </summary>
+        public CardRuntime GetCardRuntime(string id) => EnsureRuntime(id);
+
         private CardRuntime EnsureRuntime(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
@@ -565,13 +689,20 @@ namespace Game.Combat
         }
         private int EffectiveMaxHandSize()
         {
-            if (maxHandSize > 0) return maxHandSize;
-            if (handUI)
+            int baseSize;
+            if (maxHandSize > 0) baseSize = maxHandSize;
+            else if (handUI)
             {
                 var slots = handUI.GetComponentsInChildren<Game.UI.AbilityButton>(true);
-                if (slots != null && slots.Length > 0) return slots.Length;
+                baseSize = (slots != null && slots.Length > 0) ? slots.Length : 5;
             }
-            return 5;
+            else baseSize = 5;
+
+            // Ryft hand size modifier (Blue negative: HandSizeModifier)
+            var mgr = Game.Ryfts.RyftEffectManager.Instance;
+            if (mgr != null) baseSize += mgr.SumInt(Game.Ryfts.BuiltInOp.HandSizeModifier);
+
+            return Mathf.Max(1, baseSize);
         }
         public IEnumerable<IActor> AllAliveEnemies()
         {
@@ -581,12 +712,69 @@ namespace Game.Combat
                 if (e && e.IsAlive) yield return e;  // EnemyBase implements IActor
             }
         }
-        public bool CanAffordEnergy(int cost) => cost <= Mathf.Max(0, CurrentEnergy + Game.Ryfts.RyftEffectManager.Ensure().PeekCredits());
+        // ========== New card system helpers ==========
+
+        public IActor GetPlayer() => player;
+        public FightContext GetContext() => ctx;
+        public int AttackCardsPlayedThisTurn => attackCardsPlayedThisTurn;
+        public int ProtectionLostLastTurn => protectionLostLastTurn;
+        public int DelayedJusticeDamage { get => delayedJusticeDamage; set => delayedJusticeDamage = value; }
+
+        public void GainEnergy(int amount)
+        {
+            if (amount <= 0) return;
+            SetEnergy(Mathf.Min(CurrentEnergy + amount, MaxEnergy + 10)); // allow slight overflow
+            Debug.Log($"[Energy] +{amount} → {CurrentEnergy}");
+        }
+
+        public void LoseEnergy(int amount)
+        {
+            if (amount <= 0) return;
+            SetEnergy(Mathf.Max(0, CurrentEnergy - amount));
+            Debug.Log($"[Energy] -{amount} → {CurrentEnergy}");
+        }
+
+        public void DiscardRandomCard()
+        {
+            if (hand.Count == 0) return;
+            int idx = UnityEngine.Random.Range(0, hand.Count);
+            var card = hand[idx];
+            DiscardFromHand(idx);
+            RefreshHandUI();
+            ctx?.Log($"You discarded {(card ? card.displayName : "a card")}!");
+            Debug.Log($"[Discard] Random discard: {(card ? card.id : "null")}");
+        }
+
+        public void QueueExtraTurn()
+        {
+            extraTurnQueued = true;
+            Debug.Log("[ExtraTurn] Queued for after this turn.");
+        }
+
+        public void TrackAttackCardPlayed()
+        {
+            attackCardsPlayedThisTurn++;
+        }
+
+        public bool CanAffordEnergy(int cost)
+        {
+            var mgr = Game.Ryfts.RyftEffectManager.Ensure();
+            int ryftReduce  = mgr.SumInt(Game.Ryfts.BuiltInOp.EnergyCostReduction);
+            int ryftIncrease = mgr.SumInt(Game.Ryfts.BuiltInOp.EnergyCostIncrease);
+            int adjusted = Mathf.Max(0, cost - ryftReduce + ryftIncrease);
+            return adjusted <= Mathf.Max(0, CurrentEnergy + mgr.PeekCredits());
+        }
 
         public bool TrySpendEnergy(int baseCost)
         {
             var mgr  = Game.Ryfts.RyftEffectManager.Ensure();
-            int cost = mgr.ApplyCallCostForField(Mathf.Max(0, baseCost), Game.Core.StatField.Energy, autoUseCredits: true);
+
+            // Ryft passive: energy cost reduction / increase
+            int ryftReduce  = mgr.SumInt(Game.Ryfts.BuiltInOp.EnergyCostReduction);
+            int ryftIncrease = mgr.SumInt(Game.Ryfts.BuiltInOp.EnergyCostIncrease);
+            int adjusted = Mathf.Max(0, baseCost - ryftReduce + ryftIncrease);
+
+            int cost = mgr.ApplyCallCostForField(adjusted, Game.Core.StatField.Energy, autoUseCredits: true);
 
             // Record the energy payment so refunds hit Energy
             mgr.RecordLastPayment(Game.Core.StatField.Energy, cost);
@@ -646,6 +834,15 @@ namespace Game.Combat
                     }
                     // If portal is dead, OnPortalDestroyed will handle it
                 }
+                else if (MapSession.I != null && MapSession.I.IsBossFight)
+                {
+                    // Boss fight victory - trigger new map
+                    Debug.Log("[FightSceneController] BOSS FIGHT VICTORY! Generating new map...");
+                    GrantVictoryRewards();
+                    MapSession.I.NewMapPending = true;
+                    MapSession.I.IsBossFight = false;
+                    StartCoroutine(GoToRewardSceneAfterDelay());
+                }
                 else
                 {
                     // Regular fight - grant gold and go to reward scene
@@ -673,6 +870,9 @@ namespace Game.Combat
 
         private System.Collections.IEnumerator ReturnToMapAfterDelay()
         {
+            // Fire Ryft OnBattleEnd triggers (gold interest, equip break chance, etc.)
+            RyftCombatEvents.RaiseBattleEnd();
+
             // Wait a moment so the player can see the outcome
             yield return new WaitForSeconds(1.0f);
 
@@ -713,6 +913,8 @@ namespace Game.Combat
         {
             if (enemies == null || enemies.Length == 0) return;
 
+            string eliteType = null;
+
             foreach (var enemy in enemies)
             {
                 if (enemy == null) continue;
@@ -720,41 +922,53 @@ namespace Game.Combat
                 // Prefer SourceDef-based detection
                 if (enemy.SourceDef != null && enemy.SourceDef.tier == Game.Enemies.EnemyTier.Elite)
                 {
-                    string eliteType = enemy.SourceDef.id;
-                    MapSession.I.LastDefeatedEliteType = eliteType;
-
-                    if (MapSession.I.TimePortal != null)
-                    {
-                        int currentLevel = MapSession.I.CurrentMapLevel;
-                        MapSession.I.TimePortal.OnEliteDefeated(eliteType, currentLevel);
-                    }
-
-                    Debug.Log($"[FightSceneController] Tracked elite defeat: {eliteType}");
+                    eliteType = enemy.SourceDef.id;
                     break;
                 }
 
-                // Fallback: class-name matching for enemies without a def
+                // Fallback: class-name matching
                 string typeName = enemy.GetType().Name;
                 if (typeName.Contains("Chieftain") || typeName.Contains("Knight") ||
                     typeName.Contains("Golem") || typeName.Contains("Necromancer"))
                 {
-                    string fallbackType = typeName.Replace("Enemy", "");
-                    MapSession.I.LastDefeatedEliteType = fallbackType;
-
-                    if (MapSession.I.TimePortal != null)
-                    {
-                        int currentLevel = MapSession.I.CurrentMapLevel;
-                        MapSession.I.TimePortal.OnEliteDefeated(fallbackType, currentLevel);
-                    }
-
-                    Debug.Log($"[FightSceneController] Tracked elite defeat (fallback): {fallbackType}");
+                    eliteType = typeName.Replace("Enemy", "");
                     break;
                 }
+            }
+
+            if (string.IsNullOrEmpty(eliteType)) return;
+
+            MapSession.I.LastDefeatedEliteType = eliteType;
+            Debug.Log($"[FightSceneController] Tracked elite defeat: {eliteType}");
+
+            // If this was the obligation elite, mark DefeatElite obligations for the relevant borrow event
+            if (MapSession.I.IsObligationEliteFight && MapSession.I.TimePortal != null)
+            {
+                int prevWorld = MapSession.I.WorldLevel - 1;
+                foreach (var obl in MapSession.I.TimePortal.obligations)
+                {
+                    if (obl.type == Game.TimePortal.TimeObligation.ObligationType.DefeatElite &&
+                        obl.borrowWorldLevel == prevWorld &&
+                        !obl.completed)
+                    {
+                        obl.completed = true;
+                        Debug.Log($"[FightSceneController] Obligation elite defeated — marked DefeatElite obligation complete for borrow world {prevWorld}: {obl.Description}");
+                    }
+                }
+            }
+            else if (MapSession.I.TimePortal != null)
+            {
+                // Standard elite defeat — try type+level matching
+                int currentLevel = MapSession.I.CurrentMapLevel;
+                MapSession.I.TimePortal.OnEliteDefeated(eliteType, currentLevel);
             }
         }
 
         private System.Collections.IEnumerator GoToRewardSceneAfterDelay()
         {
+            // Fire Ryft OnBattleEnd triggers (gold interest, equip break chance, etc.)
+            RyftCombatEvents.RaiseBattleEnd();
+
             yield return new WaitForSeconds(1.0f);
 
             // Unsubscribe from portal events before leaving
