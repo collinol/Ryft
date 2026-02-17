@@ -62,7 +62,7 @@ namespace Game.Rewards
             if (titleText)
             {
                 titleText.text = isObligationElite
-                    ? "Choose wisely... one item closes the time loop:"
+                    ? "Choose wisely..."
                     : isEliteReward
                         ? "Elite Defeated! Choose Equipment:"
                         : "Victory! Choose a Card:";
@@ -242,7 +242,7 @@ namespace Game.Rewards
             titleGo.transform.SetParent(canvas.transform, false);
             var titleText = titleGo.AddComponent<TextMeshProUGUI>();
             titleText.text = isObligationElite
-                ? "ELITE DEFEATED!\nOne item closes the time loop:"
+                ? "ELITE DEFEATED!"
                 : isEliteReward
                     ? "ELITE DEFEATED!\nChoose Equipment:"
                     : "VICTORY!\nChoose a Card:";

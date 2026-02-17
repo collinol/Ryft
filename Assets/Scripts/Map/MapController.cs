@@ -394,6 +394,9 @@ public class MapController : MonoBehaviour
 
     /// <summary>
     /// Dynamically place a TimePortal node after the obligation elite is defeated.
+    /// The TimePortal is always placed on a 2-node row so the player must choose
+    /// between it and a Ryft Portal or Health Station (Rest). This ensures there's
+    /// a meaningful cost to fulfilling the time loop obligation.
     /// Called from Start() after RestoreState.
     /// </summary>
     void TryRevealTimePortalNode()
@@ -407,43 +410,230 @@ public class MapController : MonoBehaviour
             foreach (var n in row)
                 if (n.type == MapNodeType.TimePortal) return; // already placed
 
-        // Find a suitable node ahead of the current position
         int currentLevelIdx = FindLevelOf(currentNode);
         MapNode portalNode = null;
+        MapNode siblingNode = null;
 
-        for (int l = currentLevelIdx + 1; l < levels.Count; l++)
+        // Must be at least 4 rows ahead so the player has time to reach it
+        const int minRowsAhead = 4;
+        int earliest = currentLevelIdx + minRowsAhead;
+
+        // Ensure enough map rows exist ahead
+        if (levels.Count <= earliest + 2)
+            GenerateLevels(earliest + 3 - levels.Count + 1);
+
+        // 1) Prefer a 2-node row where both nodes share a common parent (guaranteed fork)
+        for (int l = earliest; l < levels.Count; l++)
         {
-            foreach (var n in levels[l])
+            var row = levels[l];
+            if (row.Count < 2) continue;
+
+            for (int i = 0; i < row.Count; i++)
             {
-                if (!n.visited &&
-                    n.type != MapNodeType.Rift &&
-                    n.type != MapNodeType.Envelope &&
-                    n.type != MapNodeType.TimePortal &&
-                    !n.isObligationElite)
+                var a = row[i];
+                if (!CanBecomeTimePortal(a)) continue;
+
+                for (int j = 0; j < row.Count; j++)
                 {
-                    portalNode = n;
-                    break;
+                    if (i == j) continue;
+                    var b = row[j];
+                    if (!CanBeTimePortalSibling(b)) continue;
+
+                    if (NodesShareParent(a, b, l))
+                    {
+                        portalNode = a;
+                        siblingNode = b;
+                        break;
+                    }
                 }
+                if (portalNode != null) break;
             }
             if (portalNode != null) break;
         }
 
+        // 2) No shared-parent pair — try any 2-node row and add a cross-connection
         if (portalNode == null)
         {
-            Debug.LogWarning("[Map] TryRevealTimePortalNode: No eligible node found ahead of player");
+            for (int l = earliest; l < levels.Count; l++)
+            {
+                var row = levels[l];
+                if (row.Count < 2) continue;
+
+                MapNode a = null, b = null;
+                foreach (var n in row)
+                {
+                    if (a == null && CanBecomeTimePortal(n)) { a = n; continue; }
+                    if (a != null && b == null && CanBeTimePortalSibling(n)) { b = n; break; }
+                }
+                if (a != null && b != null)
+                {
+                    portalNode = a;
+                    siblingNode = b;
+                    EnsureSharedParent(a, b, l);
+                    break;
+                }
+            }
+        }
+
+        // 3) No 2-node rows at all — add a second node to a 1-node row
+        if (portalNode == null)
+        {
+            for (int l = earliest; l < levels.Count; l++)
+            {
+                var row = levels[l];
+                if (row.Count != 1) continue;
+
+                var existing = row[0];
+                if (!CanBecomeTimePortal(existing)) continue;
+
+                // Create a sibling node (will be set to Rift/Rest below)
+                var go = Instantiate(nodePrefab, nodeParent);
+                go.name = $"Node L{l} N1";
+                float centerX = existing.transform.localPosition.x;
+                float y = existing.transform.localPosition.y;
+
+                // Spread both nodes symmetrically around the original center
+                existing.transform.localPosition = new Vector3(
+                    centerX - horizontalSpacing * 0.5f, y, 0f);
+
+                var newNode = go.GetComponent<MapNode>();
+                go.transform.localPosition = new Vector3(
+                    centerX + horizontalSpacing * 0.5f, y, 0f);
+
+                // Placeholder init — type will be set to Rift/Rest below
+                newNode.Init(MapNodeType.Rest, GetSprite(MapNodeType.Rest), this);
+                newNode.RefreshVisualSize();
+                newNode.SetReachableSilently(false);
+                if (existing.isDiscovered) newNode.Discover();
+
+                row.Add(newNode);
+
+                // Mirror parent connections so both children are reachable from the same path
+                if (l > 0)
+                {
+                    foreach (var parent in levels[l - 1])
+                        if (parent.connections.Contains(existing))
+                            Connect(parent, newNode, l - 1, l);
+                }
+
+                // Mirror child connections so both paths lead onward
+                if (l + 1 < levels.Count)
+                {
+                    // Copy the connection list to avoid modifying during iteration
+                    var existingChildren = new List<MapNode>(existing.connections);
+                    foreach (var child in existingChildren)
+                        Connect(newNode, child, l, l + 1);
+                }
+
+                portalNode = existing;
+                siblingNode = newNode;
+                break;
+            }
+        }
+
+        // Final fallback: no choice possible — place on any eligible node
+        if (portalNode == null)
+        {
+            for (int l = earliest; l < levels.Count; l++)
+            {
+                foreach (var n in levels[l])
+                {
+                    if (CanBecomeTimePortal(n))
+                    {
+                        portalNode = n;
+                        break;
+                    }
+                }
+                if (portalNode != null) break;
+            }
+
+            if (portalNode == null)
+            {
+                Debug.LogWarning("[Map] TryRevealTimePortalNode: No eligible node found ahead of player");
+                return;
+            }
+
+            // Single-path placement — no sibling, no choice penalty
+            portalNode.type = MapNodeType.TimePortal;
+            var spr = GetSprite(MapNodeType.TimePortal);
+            portalNode.Init(MapNodeType.TimePortal, spr, this);
+            portalNode.RefreshVisualSize();
+            _timePortalPlaced = true;
+            Debug.Log($"[Map] Revealed TimePortal at level {FindLevelOf(portalNode)} (solo — no choice)");
+            MapSession.I.Saved = BuildState();
             return;
         }
 
+        // ── Place the TimePortal ──
         portalNode.type = MapNodeType.TimePortal;
         var portalSprite = GetSprite(MapNodeType.TimePortal);
         portalNode.Init(MapNodeType.TimePortal, portalSprite, this);
         portalNode.RefreshVisualSize();
-        _timePortalPlaced = true;
 
-        Debug.Log($"[Map] Revealed TimePortal at level {FindLevelOf(portalNode)}, node {FindIndexInLevel(portalNode)} (after obligation elite defeated)");
+        // ── Ensure sibling is Rift or Rest ──
+        if (siblingNode.type != MapNodeType.Rift && siblingNode.type != MapNodeType.Rest)
+        {
+            bool makeRift = UnityEngine.Random.value < 0.5f;
+            if (makeRift)
+            {
+                siblingNode.type = MapNodeType.Rift;
+                siblingNode.Init(MapNodeType.Rift, null, this);
+            }
+            else
+            {
+                siblingNode.type = MapNodeType.Rest;
+                siblingNode.Init(MapNodeType.Rest, GetSprite(MapNodeType.Rest), this);
+            }
+            siblingNode.RefreshVisualSize();
+        }
+
+        _timePortalPlaced = true;
+        Debug.Log($"[Map] Revealed TimePortal at level {FindLevelOf(portalNode)} as choice vs {siblingNode.type} at level {FindLevelOf(siblingNode)}");
 
         // Save the updated state so the TimePortal persists
         MapSession.I.Saved = BuildState();
+    }
+
+    /// <summary>Can this node be converted into a TimePortal?</summary>
+    bool CanBecomeTimePortal(MapNode n) =>
+        !n.visited && !n.isObligationElite &&
+        n.type != MapNodeType.Rift &&
+        n.type != MapNodeType.Envelope &&
+        n.type != MapNodeType.TimePortal;
+
+    /// <summary>Can this node serve as the Rift/Rest alternative next to a TimePortal?</summary>
+    bool CanBeTimePortalSibling(MapNode n) =>
+        !n.visited && !n.isObligationElite &&
+        n.type != MapNodeType.Envelope &&
+        n.type != MapNodeType.TimePortal;
+
+    /// <summary>Do both nodes share at least one parent in the previous row?</summary>
+    bool NodesShareParent(MapNode a, MapNode b, int level)
+    {
+        if (level <= 0) return false;
+        foreach (var parent in levels[level - 1])
+            if (parent.connections.Contains(a) && parent.connections.Contains(b))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Add a cross-connection so that at least one parent reaches both nodes.
+    /// Picks a parent already connected to one and wires it to the other.
+    /// </summary>
+    void EnsureSharedParent(MapNode a, MapNode b, int level)
+    {
+        if (NodesShareParent(a, b, level)) return;
+        if (level <= 0) return;
+
+        foreach (var parent in levels[level - 1])
+        {
+            bool hasA = parent.connections.Contains(a);
+            bool hasB = parent.connections.Contains(b);
+
+            if (hasA && !hasB) { Connect(parent, b, level - 1, level); return; }
+            if (hasB && !hasA) { Connect(parent, a, level - 1, level); return; }
+        }
     }
 
     static void ShuffleList<T>(List<T> list)

@@ -18,7 +18,6 @@ namespace Game.TimePortal
         [Header("UI References")]
         [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI descriptionText;
-        [SerializeField] private TextMeshProUGUI obligationsText;
         [SerializeField] private Transform gearContainer;
         [SerializeField] private Button acceptButton;
         [SerializeField] private Button declineButton;
@@ -158,15 +157,16 @@ namespace Game.TimePortal
 
         private Canvas EnsureCanvas()
         {
-            var canvas = FindObjectOfType<Canvas>();
-            if (!canvas)
-            {
-                var canvasGo = new GameObject("TimePortalCanvas");
-                canvas = canvasGo.AddComponent<Canvas>();
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvasGo.AddComponent<CanvasScaler>();
-                canvasGo.AddComponent<GraphicRaycaster>();
-            }
+            // Always create our own canvas to avoid DontDestroyOnLoad canvas conflicts
+            var canvasGo = new GameObject("TimePortalCanvas");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 10; // Above default, below RyftStatusPanel
+            var scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasGo.AddComponent<GraphicRaycaster>();
 
             // Background with mystical appearance
             var bgGo = new GameObject("Background");
@@ -176,6 +176,10 @@ namespace Game.TimePortal
             var bgRt = bgGo.GetComponent<RectTransform>();
             bgRt.anchorMin = Vector2.zero;
             bgRt.anchorMax = Vector2.one;
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+
+            Debug.Log($"[TimePortal] Created canvas: {canvasGo.name}, sortingOrder={canvas.sortingOrder}");
 
             return canvas;
         }
@@ -249,62 +253,60 @@ namespace Game.TimePortal
                 emptyText.color = new Color(0.5f, 0.5f, 0.6f);
             }
 
-            // Obligations text
-            var oblGo = new GameObject("Obligations");
-            oblGo.transform.SetParent(canvas.transform, false);
-            obligationsText = oblGo.AddComponent<TextMeshProUGUI>();
-            UpdateObligationsText();
-            obligationsText.fontSize = 16;
-            obligationsText.alignment = TextAlignmentOptions.Center;
-            obligationsText.color = new Color(1f, 0.8f, 0.5f);
-            var oblRt = oblGo.GetComponent<RectTransform>();
-            oblRt.anchorMin = new Vector2(0.2f, 0.2f);
-            oblRt.anchorMax = new Vector2(0.8f, 0.32f);
-
             // Accept button
-            var acceptGo = new GameObject("AcceptButton");
-            acceptGo.transform.SetParent(canvas.transform, false);
-            var acceptRt = acceptGo.AddComponent<RectTransform>();
-            acceptRt.anchorMin = new Vector2(0.3f, 0.08f);
-            acceptRt.anchorMax = new Vector2(0.5f, 0.18f);
-            var acceptImg = acceptGo.AddComponent<Image>();
-            acceptImg.color = new Color(0.3f, 0.2f, 0.5f);
-            acceptButton = acceptGo.AddComponent<Button>();
-            acceptButton.onClick.AddListener(OnAcceptClicked);
-            acceptButton.interactable = offeredGear != null;  // Enable if gear is available
-
-            var acceptTextGo = new GameObject("Text");
-            acceptTextGo.transform.SetParent(acceptGo.transform, false);
-            var acceptText = acceptTextGo.AddComponent<TextMeshProUGUI>();
-            acceptText.text = "Accept Bargain";
-            acceptText.fontSize = 20;
-            acceptText.alignment = TextAlignmentOptions.Center;
-            acceptText.color = Color.white;
-            var acceptTextRt = acceptTextGo.GetComponent<RectTransform>();
-            acceptTextRt.anchorMin = Vector2.zero;
-            acceptTextRt.anchorMax = Vector2.one;
+            acceptButton = CreateUIButton(canvas.transform, "Accept Bargain",
+                new Color(0.3f, 0.6f, 0.3f),
+                new Vector2(0.3f, 0.08f), new Vector2(0.5f, 0.18f),
+                OnAcceptClicked);
+            acceptButton.interactable = offeredGear != null;
 
             // Decline button
-            var declineGo = new GameObject("DeclineButton");
-            declineGo.transform.SetParent(canvas.transform, false);
-            var declineRt = declineGo.AddComponent<RectTransform>();
-            declineRt.anchorMin = new Vector2(0.5f, 0.08f);
-            declineRt.anchorMax = new Vector2(0.7f, 0.18f);
-            var declineImg = declineGo.AddComponent<Image>();
-            declineImg.color = new Color(0.4f, 0.3f, 0.3f);
-            declineButton = declineGo.AddComponent<Button>();
-            declineButton.onClick.AddListener(OnDeclineClicked);
+            declineButton = CreateUIButton(canvas.transform, "Walk Away",
+                new Color(0.5f, 0.3f, 0.3f),
+                new Vector2(0.5f, 0.08f), new Vector2(0.7f, 0.18f),
+                OnDeclineClicked);
+        }
 
-            var declineTextGo = new GameObject("Text");
-            declineTextGo.transform.SetParent(declineGo.transform, false);
-            var declineText = declineTextGo.AddComponent<TextMeshProUGUI>();
-            declineText.text = "Walk Away";
-            declineText.fontSize = 20;
-            declineText.alignment = TextAlignmentOptions.Center;
-            declineText.color = Color.white;
-            var declineTextRt = declineTextGo.GetComponent<RectTransform>();
-            declineTextRt.anchorMin = Vector2.zero;
-            declineTextRt.anchorMax = Vector2.one;
+        /// <summary>
+        /// Reliable button factory — adds Image first (which forces RectTransform),
+        /// then configures the rect. Works regardless of Canvas/CanvasScaler quirks.
+        /// </summary>
+        private Button CreateUIButton(Transform parent, string label, Color bgColor,
+            Vector2 anchorMin, Vector2 anchorMax, UnityEngine.Events.UnityAction onClick)
+        {
+            var go = new GameObject($"Btn_{label}");
+            go.transform.SetParent(parent, false);
+
+            // Image first — guarantees RectTransform exists
+            var img = go.AddComponent<Image>();
+            img.color = bgColor;
+
+            // Now configure the rect
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(onClick);
+
+            // Label text
+            var textGo = new GameObject("Label");
+            textGo.transform.SetParent(go.transform, false);
+            var tmp = textGo.AddComponent<TextMeshProUGUI>();
+            tmp.text = label;
+            tmp.fontSize = 22;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = Color.white;
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+
+            return btn;
         }
 
         /// <summary>
@@ -341,10 +343,6 @@ namespace Game.TimePortal
             // Obligation status display
             var oblGo = new GameObject("ObligationStatus");
             oblGo.transform.SetParent(canvas.transform, false);
-            obligationsText = oblGo.AddComponent<TextMeshProUGUI>();
-            obligationsText.fontSize = 20;
-            obligationsText.alignment = TextAlignmentOptions.Center;
-            obligationsText.color = new Color(1f, 0.8f, 0.5f);
             var oblRt = oblGo.GetComponent<RectTransform>();
             oblRt.anchorMin = new Vector2(0.15f, 0.3f);
             oblRt.anchorMax = new Vector2(0.85f, 0.65f);
@@ -379,29 +377,12 @@ namespace Game.TimePortal
             else if (relevantObligations.Exists(o => !o.completed))
                 sb.AppendLine("Some obligations are still pending...");
 
-            obligationsText.text = sb.ToString();
 
             // Continue button
-            var continueGo = new GameObject("ContinueButton");
-            continueGo.transform.SetParent(canvas.transform, false);
-            var continueRt = continueGo.AddComponent<RectTransform>();
-            continueRt.anchorMin = new Vector2(0.35f, 0.08f);
-            continueRt.anchorMax = new Vector2(0.65f, 0.18f);
-            var continueImg = continueGo.AddComponent<Image>();
-            continueImg.color = new Color(0.2f, 0.4f, 0.5f);
-            var continueBtn = continueGo.AddComponent<Button>();
-            continueBtn.onClick.AddListener(ReturnToMap);
-
-            var continueTextGo = new GameObject("Text");
-            continueTextGo.transform.SetParent(continueGo.transform, false);
-            var continueText = continueTextGo.AddComponent<TextMeshProUGUI>();
-            continueText.text = "Continue";
-            continueText.fontSize = 22;
-            continueText.alignment = TextAlignmentOptions.Center;
-            continueText.color = Color.white;
-            var continueTextRt = continueTextGo.GetComponent<RectTransform>();
-            continueTextRt.anchorMin = Vector2.zero;
-            continueTextRt.anchorMax = Vector2.one;
+            CreateUIButton(canvas.transform, "Continue",
+                new Color(0.2f, 0.4f, 0.5f),
+                new Vector2(0.35f, 0.08f), new Vector2(0.65f, 0.18f),
+                ReturnToMap);
         }
 
         private void CreateGearDisplay(Transform parent, EquipmentDef equip)
@@ -487,23 +468,6 @@ namespace Game.TimePortal
             rarityRt.anchorMax = new Vector2(1, 0.18f);
             rarityRt.offsetMin = new Vector2(10, 0);
             rarityRt.offsetMax = new Vector2(-10, 0);
-        }
-
-        private void UpdateObligationsText()
-        {
-            if (obligationsText == null) return;
-
-            if (offeredGear == null)
-            {
-                obligationsText.text = "";
-            }
-            else
-            {
-                obligationsText.text = "OBLIGATIONS:\n" +
-                    "1. Defeat the highlighted elite on the next map\n" +
-                    "2. Visit the Time Portal that appears after\n" +
-                    "\nFail these, and the gear vanishes!";
-            }
         }
 
         private void OnAcceptClicked()
